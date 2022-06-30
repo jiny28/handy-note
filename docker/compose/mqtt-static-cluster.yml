@@ -1,0 +1,56 @@
+version: "3.5"
+
+services:
+  nginx:
+    image: nginx:1.19.2
+    container_name: ${COMPOSE_PROJECT_NAME}_nginx # root dir create ".env" file.
+    restart: always
+    ports:
+      - ${nginx_port}:80
+      - ${nginx_mqtt_port}:1883
+    volumes:
+      - ${nginx_config}:/etc/nginx/nginx.conf
+    networks:
+      - network_bridge
+
+  emqx1:
+    image: emqx/emqx:v4.1.4
+    container_name: ${COMPOSE_PROJECT_NAME}_emqx1
+    environment:
+      - EMQX_NAME=mq1
+      - EMQX_HOST=172.19.0.10
+      - EMQX_CLUSTER__DISCOVERY=static
+      - EMQX_CLUSTER__STATIC__SEEDS=mq1@172.19.0.10, mq2@172.19.0.11
+      - EMQX_LOADED_PLUGINS="emqx_recon,emqx_retainer,emqx_management,emqx_dashboard,emqx_auth_username"
+      - EMQX_ZONE__EXTERNAL__MAX_INFLIGHT=1024
+    restart: unless-stopped
+    ports: # web页面端口
+      - 18083:18083
+    networks:
+      network_bridge:
+        ipv4_address: 172.19.0.10
+
+  emqx2:
+    image: emqx/emqx:v4.1.4
+    container_name: ${COMPOSE_PROJECT_NAME}_emqx2
+    environment:
+      - EMQX_NAME=mq2
+      - EMQX_HOST=172.19.0.11
+      - EMQX_CLUSTER__DISCOVERY=static
+      - EMQX_CLUSTER__STATIC__SEEDS=mq1@172.19.0.10, mq2@172.19.0.11
+      - EMQX_LOADED_PLUGINS="emqx_recon,emqx_retainer,emqx_management,emqx_dashboard,emqx_auth_username"
+      - EMQX_ZONE__EXTERNAL__MAX_INFLIGHT=1024
+    restart: unless-stopped
+    ports:  # web页面端口
+      - 18084:18083
+    networks:
+      network_bridge:
+        ipv4_address: 172.19.0.11
+
+networks:
+  network_bridge: # create network and statement subnet
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.19.0.0/24

@@ -1,0 +1,105 @@
+version: "3.5"
+
+services:
+  nginx-nfs:
+    image: nginx
+    deploy:
+      mode: replicated
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    environment:
+      - TZ="Asia/Shanghai"
+    ports:
+      - 1883:1883
+      - 81:80
+      - 18083:18083
+    volumes:
+      - nginxconfig:/etc/nginx
+    networks:
+      mynet:
+        aliases:
+          - nginx-nfs
+
+  emqnode1:
+    image: emqx/emqx:v4.1.4
+    environment:
+      - TZ="Asia/Shanghai"
+      - EMQX_NAME=node01
+      - EMQX_HOST=emq01.io
+      - EMQX_CLUSTER__DISCOVERY=static
+      - EMQX_CLUSTER__STATIC__SEEDS="node01@emq01.io,node02@emq02.io,node03@emq03.io"
+      - EMQX_LOADED_PLUGINS="emqx_recon,emqx_retainer,emqx_management,emqx_dashboard,emqx_auth_username"
+      - EMQX_ZONE__EXTERNAL__MAX_INFLIGHT=1024
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      placement:
+        constraints: # 使用 label 指定在特定节点上运行
+          - node.labels.emq==service9
+    networks:
+      mynet:
+        aliases:
+          - emq01.io
+
+  emqnode2:
+    image: emqx/emqx:v4.1.4
+    environment:
+      - TZ="Asia/Shanghai"
+      - EMQX_NAME=node02
+      - EMQX_HOST=emq02.io
+      - EMQX_CLUSTER__DISCOVERY=static
+      - EMQX_CLUSTER__STATIC__SEEDS="node01@emq01.io,node02@emq02.io,node03@emq03.io"
+      - EMQX_LOADED_PLUGINS="emqx_recon,emqx_retainer,emqx_management,emqx_dashboard,emqx_auth_username"
+      - EMQX_ZONE__EXTERNAL__MAX_INFLIGHT=1024
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      placement:
+        constraints:
+          - node.labels.emq==service7
+    networks:
+      mynet:
+        aliases:
+          - emq02.io
+
+  emqnode3:
+    image: emqx/emqx:v4.1.4
+    environment:
+      - TZ="Asia/Shanghai"
+      - EMQX_NAME=node03
+      - EMQX_HOST=emq03.io
+      - EMQX_CLUSTER__DISCOVERY=static
+      - EMQX_CLUSTER__STATIC__SEEDS="node01@emq01.io,node02@emq02.io,node03@emq03.io"
+      - EMQX_LOADED_PLUGINS="emqx_recon,emqx_retainer,emqx_management,emqx_dashboard,emqx_auth_username"
+      - EMQX_ZONE__EXTERNAL__MAX_INFLIGHT=1024
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      placement:
+        constraints:
+          - node.labels.emq==service13
+    networks:
+      mynet:
+        aliases:
+          - emq03.io
+volumes: # ubuntu create NFS share.
+  nginxconfig:
+    driver: local
+    driver_opts: 
+      type: "nfs"
+      o: "addr=10.88.0.9,rw"
+      device: ":/nfs/nginx/conf"
+
+networks:
+  mynet:
+    external: true
+

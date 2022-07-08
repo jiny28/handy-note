@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- scan:当此属性设置为true时，配置文件如果发生改变，将会被重新加载，默认值为true -->
+<!-- scanPeriod:设置监测配置文件是否有修改的时间间隔，如果没有给出时间单位，默认单位是毫秒。当scan为true时，此属性生效。默认的时间间隔为1分钟。 -->
+<!-- debug:当此属性设置为true时，将打印出logback内部日志信息，实时查看logback运行状态。默认值为false。 -->
+<configuration>
+
+    <!-- 彩色日志 -->
+    <conversionRule conversionWord="clr" converterClass="org.springframework.boot.logging.logback.ColorConverter" />
+    <conversionRule conversionWord="wex" converterClass="org.springframework.boot.logging.logback.WhitespaceThrowableProxyConverter" />
+    <conversionRule conversionWord="wEx" converterClass="org.springframework.boot.logging.logback.ExtendedWhitespaceThrowableProxyConverter" />
+    <!-- 彩色日志格式 -->
+    <property name="CONSOLE_LOG_PATTERN" value="${CONSOLE_LOG_PATTERN:-%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}}"/>
+
+    <!-- 日志输出根目录 -->
+    <property name="log.home" value="./logs"/>
+
+    <!-- 输出样式 -->
+    <property name="pattern" value="%d{yyyy-MM-dd HH:mm:ss,Asia/Shanghai} [%t] [%c]-[%p] %m%n"/>
+    <!-- 输出编码格式 -->
+    <property name="encoding" value="UTF-8"/>
+    <!-- 控制台日志输出等级 -->
+    <property name="console.level" value="info"/>
+    <!-- 文件日志输出等级 -->
+    <property name="main.level" value="info"/>
+    <!-- 日志保留多少天 -->
+    <property name="log.maxHistory" value="30"/>
+    <!-- 文件最大多少 -->
+    <property name="log.maxSize" value="30MB"/>
+    <!-- 文件总大小 -->
+    <property name="log.totalSize" value="10GB"/>
+
+    <!-- 控制台append -->
+    <appender name="stdout-appender" class="ch.qos.logback.core.ConsoleAppender">
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>${console.level}</level>
+        </filter>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            <charset>${encoding}</charset>
+        </encoder>
+    </appender>
+
+    <!-- 所有日志汇总 -->
+    <appender name="main-appender" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${log.home}/main.log</file>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>${main.level}</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <FileNamePattern>${log.home}/main-%d{yyyy-MM-dd}_%i.log.zip</FileNamePattern>
+            <MaxHistory>${log.maxHistory}</MaxHistory>
+            <MaxFileSize>${log.maxSize}</MaxFileSize>
+            <totalSizeCap>${log.totalSize}</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${pattern}</pattern>
+            <charset>${encoding}</charset>
+        </encoder>
+    </appender>
+
+    <!-- 异步输出main-appender -->
+    <appender name ="async-main" class= "ch.qos.logback.classic.AsyncAppender">
+        <!-- 不丢失日志 -->
+        <discardingThreshold>0</discardingThreshold>
+        <!-- 更改默认的队列的深度,该值会影响性能.默认值为256 -->
+        <queueSize>256</queueSize>
+        <!-- 添加附加的appender,最多只能添加一个 -->
+        <appender-ref ref ="main-appender"/>
+    </appender>
+
+
+    <!-- error 日志 -->
+    <appender name="error-appender" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${log.home}/error.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <FileNamePattern>${log.home}/error-%d{yyyy-MM-dd}_%i.log.zip</FileNamePattern>
+            <MaxHistory>${log.maxHistory}</MaxHistory>
+            <MaxFileSize>${log.maxSize}</MaxFileSize>
+            <totalSizeCap>${log.totalSize}</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${pattern}</pattern>
+            <charset>${encoding}</charset>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+    </appender>
+
+    <root level="debug">
+        <appender-ref ref="stdout-appender"/>
+        <appender-ref ref="async-main"/>
+        <appender-ref ref="error-appender"/>
+    </root>
+
+</configuration>

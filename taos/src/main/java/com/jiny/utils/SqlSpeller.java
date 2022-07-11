@@ -1,10 +1,12 @@
 package com.jiny.utils;
 
-import com.jiny.entity.SuperTableMeta;
+import com.jiny.entity.*;
 import org.springframework.util.StringUtils;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class SqlSpeller {
 
@@ -28,6 +30,79 @@ public class SqlSpeller {
         sb.append(tags);
         return sb.toString();
     }
+
+    // create table if not exists xx.xx using xx.xx (x,x,x,) tags(x,x,x)
+    public static String createTableUsingSuperTable(SubTableMeta subTableMeta) {
+        String subTableName = StringUtils.hasText(subTableMeta.getDatabase()) ? subTableMeta.getDatabase() + "." + subTableMeta.getName() : subTableMeta.getName();
+        String supTableName = StringUtils.hasText(subTableMeta.getDatabase()) ? subTableMeta.getDatabase() + "." + subTableMeta.getSuperTable() : subTableMeta.getSuperTable();
+        StringBuilder sb = new StringBuilder();
+        sb.append("create table if not exists ").append(subTableName).append(" ");
+        sb.append("using ").append(supTableName).append(" ");
+        String tagName = subTableMeta.getTags().stream()
+                .filter(Objects::nonNull).map(tag -> tag.getName() + " ")
+                .collect(Collectors.joining(",", "(", ")"));
+        sb.append(tagName).append(" ");
+        sb.append("tags ").append(tagValues(subTableMeta.getTags()));
+        return sb.toString();
+    }
+
+
+    // insert into xx.xx values(),(),()... xx.xx values(),()...
+    public static String insertMultiSubTableMultiValues(List<SubTableValue> tables) {
+        return "insert into " + tables.stream().filter(Objects::nonNull)
+                .map(table -> {
+                    String tableName = StringUtils.hasText(table.getDatabase()) ? table.getDatabase() + "." + table.getName() : table.getName();
+                    return tableName + " values " + rowValues(table.getValues());
+                })
+                .collect(Collectors.joining(" ", "", ""));
+    }
+
+
+    // insert into xx.xx using xx.xx tags(xx,xx) values(),()...
+    public static String insertMultiTableMultiValuesUsingSuperTable(List<SubTableValue> tables) {
+        return "insert into " + tables.stream().filter(Objects::nonNull)
+                .map(table -> {
+                    StringBuilder sb = new StringBuilder();
+                    String subTableName = StringUtils.hasText(table.getDatabase()) ? table.getDatabase() + "." + table.getName() : table.getName();
+                    String supTableName = StringUtils.hasText(table.getDatabase()) ? table.getDatabase() + "." + table.getSuperTable() : table.getSuperTable();
+                    sb.append(subTableName);
+                    sb.append(" using ").append(supTableName);
+                    sb.append(" tags ").append(tagValues(table.getTags()));
+                    sb.append(" values ").append(rowValues(table.getValues()));
+                    return sb.toString();
+                }).collect(Collectors.joining(" "));
+    }
+
+    // (t1,t2,t3...)
+    private static String tagValues(List<TagValue> tags) {
+        return tags.stream().filter(Objects::nonNull)
+                .map(tagValue -> "'" + tagValue.getValue() + "'")
+                .collect(Collectors.joining(",", "(", ")"));
+    }
+
+    //(f1, f2, f3),(f1, f2, f3)
+    private static String rowValues(List<RowValue> rowValues) {
+        return rowValues.stream().filter(Objects::nonNull)
+                .map(rowValue -> fieldValues(rowValue.getFields()))
+                .collect(Collectors.joining(",", "", ""));
+    }
+
+    //f1, f2, f3
+    private static String fieldValues(List<FieldValue> fields) {
+        return IntStream.range(0, fields.size()).mapToObj(i -> {
+            if (i == 0) {
+                return "" + fields.get(i).getValue() + "";
+            } else {
+                return "'" + fields.get(i).getValue() + "'";
+            }
+        }).collect(Collectors.joining(",", "(", ")"));
+
+//        return fields.stream()
+//                .filter(Objects::nonNull)
+//                .map(fieldValue -> "'" + fieldValue.getValue() + "'")
+//                .collect(Collectors.joining(",", "(", ")"));
+    }
+
 
     /*
     // create database if not exists xxx keep xx days xx replica xx cache xx...
@@ -63,17 +138,7 @@ public class SqlSpeller {
         return sb.toString();
     }
 
-    // create table if not exists xx.xx using xx.xx tags(x,x,x)
-    public static String createTableUsingSuperTable(SubTableMeta subTableMeta) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("create table if not exists ").append(subTableMeta.getDatabase()).append(".").append(subTableMeta.getName()).append(" ");
-        sb.append("using ").append(subTableMeta.getDatabase()).append(".").append(subTableMeta.getSupertable()).append(" ");
-//        String tagStr = subTableMeta.getTags().stream().filter(Objects::nonNull)
-//                .map(tagValue -> tagValue.getName() + " '" + tagValue.getValue() + "' ")
-//                .collect(Collectors.joining(",", "(", ")"));
-        sb.append("tags ").append(tagValues(subTableMeta.getTags()));
-        return sb.toString();
-    }
+
 
     // insert into xx.xxx values(x,x,x),(x,x,x)...
     public static String insertOneTableMultiValues(SubTableValue subTableValue) {
@@ -83,28 +148,9 @@ public class SqlSpeller {
         return sb.toString();
     }
 
-    //f1, f2, f3
-    private static String fieldValues(List<FieldValue> fields) {
-        return IntStream.range(0, fields.size()).mapToObj(i -> {
-            if (i == 0) {
-                return "" + fields.get(i).getValue() + "";
-            } else {
-                return "'" + fields.get(i).getValue() + "'";
-            }
-        }).collect(Collectors.joining(",", "(", ")"));
 
-//        return fields.stream()
-//                .filter(Objects::nonNull)
-//                .map(fieldValue -> "'" + fieldValue.getValue() + "'")
-//                .collect(Collectors.joining(",", "(", ")"));
-    }
 
-    //(f1, f2, f3),(f1, f2, f3)
-    private static String rowValues(List<RowValue> rowValues) {
-        return rowValues.stream().filter(Objects::nonNull)
-                .map(rowValue -> fieldValues(rowValue.getFields()))
-                .collect(Collectors.joining(",", "", ""));
-    }
+
 
     // insert into xx.xxx using xx.xx tags(x,x,x) values(x,x,x),(x,x,x)...
     public static String insertOneTableMultiValuesUsingSuperTable(SubTableValue subTableValue) {
@@ -116,32 +162,11 @@ public class SqlSpeller {
         return sb.toString();
     }
 
-    // (t1,t2,t3...)
-    private static String tagValues(List<TagValue> tags) {
-        return tags.stream().filter(Objects::nonNull)
-                .map(tagValue -> "'" + tagValue.getValue() + "'")
-                .collect(Collectors.joining(",", "(", ")"));
-    }
 
-    // insert into xx.xx values(),(),()... xx.xx values(),()...
-    public static String insertMultiSubTableMultiValues(List<SubTableValue> tables) {
-        return "insert into " + tables.stream().filter(Objects::nonNull)
-                .map(table -> table.getDatabase() + "." + table.getName() + " values " + rowValues(table.getValues()))
-                .collect(Collectors.joining(" ", "", ""));
-    }
 
-    // insert into xx.xx using xx.xx tags(xx,xx) values(),()...
-    public static String insertMultiTableMultiValuesUsingSuperTable(List<SubTableValue> tables) {
-        return "insert into " + tables.stream().filter(Objects::nonNull)
-                .map(table -> {
-                    StringBuilder sb = new StringBuilder();
-                    sb.append(table.getDatabase()).append(".").append(table.getName());
-                    sb.append(" using ").append(table.getDatabase()).append(".").append(table.getSupertable());
-                    sb.append(" tags ").append(tagValues(table.getTags()));
-                    sb.append(" values ").append(rowValues(table.getValues()));
-                    return sb.toString();
-                }).collect(Collectors.joining(" "));
-    }
+
+
+
 
 
 

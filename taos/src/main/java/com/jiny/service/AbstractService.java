@@ -12,10 +12,10 @@ import java.sql.*;
 public class AbstractService {
 
 
-    public void executeDDL(String sql) throws SQLException {
+    public int executeDDL(String sql) throws SQLException {
         try (Connection connection = getConnection();
              Statement statement = connection.createStatement()) {
-            statement.executeUpdate(sql);
+            return statement.executeUpdate(sql);
         }
     }
 

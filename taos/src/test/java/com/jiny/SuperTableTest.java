@@ -11,15 +11,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.util.ArrayList;
 
 @SpringBootTest
-class TaosApplicationTests {
+class SuperTableTest {
 
     @Autowired
     private SuperTableInterface superTableInterface;
 
 
-    @Test
-    void contextLoads() {
-    }
 
     @Test
     void createStable() {

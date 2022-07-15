@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.ArrayList;
+import java.util.List;
 
 @SpringBootTest
 class SuperTableTest {
@@ -21,16 +22,19 @@ class SuperTableTest {
     @Test
     void createStable() {
         //CREATE STABLE meters (ts timestamp, current float, voltage int, phase float) TAGS (location binary(64), groupId int);
-        superTableInterface.create(new SuperTableMeta("", "meters", new ArrayList<FieldMeta>() {{
-            add(new FieldMeta("ts", "TIMESTAMP"));
-            add(new FieldMeta("current", "FLOAT"));
-            add(new FieldMeta("voltage", "INT"));
-            add(new FieldMeta("phase", "FLOAT"));
-        }}, new ArrayList<TagMeta>() {{
+        // generate fields
+        List<FieldMeta> fieldMetas = new ArrayList<>();
+        fieldMetas.add(new FieldMeta("ts", "TIMESTAMP"));
+        for (int i = 0; i < 200; i++) {
+            String fieldName = "field" + i;
+            String fieldType = i % 2 == 0 ? "FLOAT" : "INT";
+            fieldMetas.add(new FieldMeta(fieldName, fieldType));
+        }
+        SuperTableMeta superTableMeta = new SuperTableMeta("", "meters", fieldMetas, new ArrayList<TagMeta>() {{
             add(new TagMeta("location", "BINARY(64)"));
             add(new TagMeta("groupId", "INT"));
-        }}));
-
+        }});
+        superTableInterface.create(superTableMeta);
     }
 
 

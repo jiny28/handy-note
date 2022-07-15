@@ -1,0 +1,37 @@
+version: "3"
+services:
+  td-1:
+    image: tdengine/tdengine:2.6.0.6
+    hostname: td-1
+    environment:
+      TAOS_FQDN: "td-1"
+      TAOS_FIRST_EP: "td-1"
+      TAOS_NUM_OF_MNODES: "2"
+      TAOS_REPLICA: "2"
+      TZ: "Asia/Shanghai"
+  td-2:
+    image: tdengine/tdengine:2.6.0.6
+    hostname: td-2
+    environment:
+      TAOS_FQDN: "td-2"
+      TAOS_FIRST_EP: "td-1"
+      TAOS_NUM_OF_MNODES: "2"
+      TAOS_REPLICA: "2"
+      TZ: "Asia/Shanghai"
+  td-3:
+    image: tdengine/tdengine:2.6.0.6
+    hostname: td-3
+    environment:
+      TAOS_FQDN: "td-3"
+      TAOS_FIRST_EP: "td-1"
+      TAOS_NUM_OF_MNODES: "2"
+      TAOS_REPLICA: "2"
+      TZ: "Asia/Shanghai"
+#    volumes:
+#      - taosdata-td2:/var/lib/taos/
+#      - taoslog-td2:/var/log/taos/
+#volumes:
+#  taosdata-td1:
+#  taoslog-td1:
+#  taosdata-td2:
+#  taoslog-td2:

@@ -2,8 +2,6 @@ package mqttUtil
 
 import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"log"
-	"os"
 	"time"
 )
 
@@ -21,8 +19,8 @@ type MqttConnection struct {
 }
 
 func (m *MqttConnection) Connection(f mqtt.MessageHandler) {
-	mqtt.DEBUG = log.New(os.Stdout, "", 0)
-	mqtt.ERROR = log.New(os.Stdout, "", 0)
+	//mqtt.DEBUG = log.New(os.Stdout, "", 0)
+	//mqtt.ERROR = log.New(os.Stdout, "", 0)
 	opts := mqtt.NewClientOptions()
 	for _, v := range m.Host {
 		opts.AddBroker(v)
@@ -57,6 +55,7 @@ func (m *MqttConnection) UnSubscribe(topics ...string) error {
 	if token := m.connClient.Unsubscribe(topics...); token.WaitTimeout(time.Duration(actionTimeout)*time.Second) && token.Error() != nil {
 		return token.Error()
 	}
+	mqtt.DEBUG.Println("unsubscribe topic :", topics)
 	return nil
 }
 

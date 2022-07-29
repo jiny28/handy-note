@@ -27,10 +27,8 @@ func Connection(info MysqlInfo) (*sql.DB, error) {
 	MyDB.SetConnMaxLifetime(100)
 	MyDB.SetMaxOpenConns(100)
 	MyDB.SetMaxIdleConns(10)
-	if error := MyDB.Ping(); error != nil {
-		return nil, error
-	}
-	return MyDB, nil
+	error := MyDB.Ping()
+	return MyDB, error
 }
 
 //Add new record to table

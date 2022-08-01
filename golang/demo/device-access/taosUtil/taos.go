@@ -42,7 +42,7 @@ var TaosDb *sql.DB
 
 func Connection(info TaosInfo) (*sql.DB, error) {
 	url := "root:taosdata@/tcp(" + info.HostName + ":" + strconv.Itoa(info.ServerPort) + ")/" + info.DbName
-	url += "?batchfetch=true&charset=utf-8&locale=en_US.UTF-8&timezone=UTC-8&maxSQLLength=1048576"
+	url += "?charset=utf-8&locale=en_US.UTF-8&timezone=UTC-8&maxSQLLength=1048576"
 	var error error
 	TaosDb, error = sql.Open("taosSql", url)
 	return TaosDb, error
@@ -90,9 +90,9 @@ func fieldValues(fields []FieldValue) string {
 	array := make([]string, len(fields))
 	for i := range array {
 		if i == 0 {
-			array[i] = fmt.Sprintf("%s", fields[i].Value)
+			array[i] = fmt.Sprintf("%v", fields[i].Value)
 		} else {
-			array[i] = fmt.Sprintf("'%s'", fields[i].Value)
+			array[i] = fmt.Sprintf("'%v'", fields[i].Value)
 		}
 	}
 	return "(" + strings.Join(array, ",") + ")"
@@ -101,7 +101,7 @@ func fieldValues(fields []FieldValue) string {
 func tagValues(tags []TagValue) string {
 	tableArray := make([]string, len(tags))
 	for i, tag := range tags {
-		tableArray[i] = fmt.Sprintf("'%s'", tag.Value)
+		tableArray[i] = fmt.Sprintf("'%v'", tag.Value)
 	}
 	return "(" + strings.Join(tableArray, ",") + ")"
 }

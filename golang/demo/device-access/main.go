@@ -80,6 +80,8 @@ func main() {
 	num, err := taosUtil.InsertAutoCreateTable(data)
 	checkErr(err, "taos insert")
 	fmt.Println("插入多少条", num)
+	query, err := taosUtil.ExecuteQuery("select count(*) from meters")
+	fmt.Println("taos select : ", query)
 
 }
 
@@ -90,7 +92,7 @@ func createTaosData() []taosUtil.SubTableValue {
 	startDate, err := time.ParseInLocation("2006-01-02 15:04:05", startTime, time.Local)
 
 	checkErr(err, "")
-	start := startDate.UnixNano()
+	start := startDate.UnixNano() / 1e6
 	// 100个电表，每块电表200个点位
 	for i := 0; i < 1; i++ {
 		var subTableValue taosUtil.SubTableValue
@@ -112,11 +114,11 @@ func createTaosData() []taosUtil.SubTableValue {
 		rowValues := make([]taosUtil.RowValue, num)
 		for j := 0; j < num; j++ {
 			fieldNum := 200
-			fieldValues := make([]taosUtil.FieldValue, fieldNum)
-			fieldValues[0] = taosUtil.FieldValue{
+			fieldValues := make([]taosUtil.FieldValue, 0)
+			fieldValues = append(fieldValues, taosUtil.FieldValue{
 				Name:  "ts",
 				Value: start,
-			}
+			})
 			for a := 0; a < fieldNum; a++ {
 
 				fieldName := "field" + strconv.Itoa(a)
@@ -138,7 +140,7 @@ func createTaosData() []taosUtil.SubTableValue {
 				}
 				fieldValues = append(fieldValues, fieldValue)
 			}
-			rowValues = append(rowValues, taosUtil.RowValue{Fields: fieldValues})
+			rowValues[j] = taosUtil.RowValue{Fields: fieldValues}
 			start += 1000
 		}
 		subTableValue.Values = rowValues

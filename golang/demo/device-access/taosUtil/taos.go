@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/taosdata/driver-go/v2/taosSql"
+	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type TaosInfo struct {
@@ -153,4 +155,68 @@ func UseDatabase(database string) error {
 	}
 	_, err = res.RowsAffected()
 	return err
+}
+
+func CreateTaosData() []SubTableValue {
+	var subTableValues []SubTableValue
+	startTime := "2022-07-10 10:00:00"
+
+	startDate, _ := time.ParseInLocation("2006-01-02 15:04:05", startTime, time.Local)
+
+	start := startDate.UnixNano() / 1e6
+	// 100个电表，每块电表200个点位
+	for i := 0; i < 1; i++ {
+		var subTableValue SubTableValue
+		is := strconv.Itoa(i)
+		subTableValue.Name = "d00" + is
+		subTableValue.SuperTable = "meters"
+		tags := []TagValue{
+			{
+				Name:  "location",
+				Value: "d00" + is,
+			},
+			{
+				Name:  "groupId",
+				Value: 1 + i,
+			},
+		}
+		subTableValue.Tags = tags
+		num := 100 // 一次插入多少数据
+		rowValues := make([]RowValue, num)
+		for j := 0; j < num; j++ {
+			fieldNum := 200
+			fieldValues := make([]FieldValue, 0)
+			fieldValues = append(fieldValues, FieldValue{
+				Name:  "ts",
+				Value: start,
+			})
+			for a := 0; a < fieldNum; a++ {
+
+				fieldName := "field" + strconv.Itoa(a)
+
+				f := rand.Int() % 1000
+				v := 200 + rand.Float32()
+
+				var fieldValue FieldValue
+				if a%2 == 0 {
+					fieldValue = FieldValue{
+						Name:  fieldName,
+						Value: v,
+					}
+				} else {
+					fieldValue = FieldValue{
+						Name:  fieldName,
+						Value: f,
+					}
+				}
+				fieldValues = append(fieldValues, fieldValue)
+			}
+			rowValues[j] = RowValue{Fields: fieldValues}
+			start += 1000
+		}
+		subTableValue.Values = rowValues
+		subTableValues = append(subTableValues, subTableValue)
+	}
+	return subTableValues
+
 }

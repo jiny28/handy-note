@@ -2,13 +2,14 @@ package main
 
 import (
 	"database/sql"
+	"device-access/entity"
 	"device-access/mqttUtil"
 	"device-access/mysqlUtil"
+	"device-access/queue"
 	"device-access/redisUtil"
 	"device-access/taosUtil"
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"math/rand"
 	"strconv"
 	"time"
 )
@@ -22,17 +23,12 @@ var mysqlInfo = mysqlUtil.MysqlInfo{
 }
 
 var mqttConnection = mqttUtil.MqttConnection{
-	Host:               []string{"tcp://10.88.0.14:1883"},
+	//Host:               []string{"tcp://10.88.0.14:1883"},
 	Client:             "go_admin",
 	Username:           "hlhz",
 	Password:           "hlhz.123456",
 	AutomaticReconnect: true,
 	CleanSession:       true,
-}
-
-var f mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	fmt.Printf("TOPIC: %s\n", msg.Topic())
-	fmt.Printf("MSG: %s\n", msg.Payload())
 }
 
 var redisInfo = redisUtil.RedisInfo{
@@ -50,104 +46,77 @@ var taosInfo = taosUtil.TaosInfo{
 	DbName:     "hlhz",
 }
 
-func main() {
-	db := initMysql()
-	defer db.Close()
-	exeSql := "select * from test"
-	res, err := mysqlUtil.GetAll(exeSql)
-	checkErr(err, "sql:"+exeSql)
-	fmt.Println("result : ", res)
-	mqttConnection.Connection(f)
-	defer mqttConnection.Disconnection(250)
-	err = mqttConnection.Subscribe(map[string]byte{"aaa": 0, "bbb": 0}, nil)
-	checkErr(err, "subscribe topic ")
-	err = mqttConnection.PublishMsg("test", 0, false, "发送消息")
-	checkErr(err, "PublishMsg")
-	/*for true {
-		time.Sleep(1000)
-	}*/
-	redisUtil.RedisInit(redisInfo)
-	redisUtil.RedisClient.Do("select", 2)
-	err = redisUtil.RedisClient.Set("aaa", 123, 0).Err()
-	checkErr(err, "redis set ")
-	result, errGet := redisUtil.RedisClient.Get("aaa").Result()
-	checkErr(errGet, "redis get ")
-	fmt.Println(result)
-	_, err = taosUtil.Connection(taosInfo)
-	checkErr(err, "taos connection")
-	defer taosUtil.Close()
-	data := createTaosData()
-	num, err := taosUtil.InsertAutoCreateTable(data)
-	checkErr(err, "taos insert")
-	fmt.Println("插入多少条", num)
-	query, err := taosUtil.ExecuteQuery("select count(*) from meters")
-	fmt.Println("taos select : ", query)
+var db *sql.DB
 
+func init() {
+	redisUtil.RedisInit(redisInfo)
+	db = initMysql()
 }
 
-func createTaosData() []taosUtil.SubTableValue {
-	var subTableValues []taosUtil.SubTableValue
-	startTime := "2022-07-10 10:00:00"
-
-	startDate, err := time.ParseInLocation("2006-01-02 15:04:05", startTime, time.Local)
-
-	checkErr(err, "")
-	start := startDate.UnixNano() / 1e6
-	// 100个电表，每块电表200个点位
-	for i := 0; i < 1; i++ {
-		var subTableValue taosUtil.SubTableValue
-		is := strconv.Itoa(i)
-		subTableValue.Name = "d00" + is
-		subTableValue.SuperTable = "meters"
-		tags := []taosUtil.TagValue{
-			{
-				Name:  "location",
-				Value: "d00" + is,
-			},
-			{
-				Name:  "groupId",
-				Value: 1 + i,
-			},
-		}
-		subTableValue.Tags = tags
-		num := 100 // 一次插入多少数据
-		rowValues := make([]taosUtil.RowValue, num)
-		for j := 0; j < num; j++ {
-			fieldNum := 200
-			fieldValues := make([]taosUtil.FieldValue, 0)
-			fieldValues = append(fieldValues, taosUtil.FieldValue{
-				Name:  "ts",
-				Value: start,
-			})
-			for a := 0; a < fieldNum; a++ {
-
-				fieldName := "field" + strconv.Itoa(a)
-
-				f := rand.Int() % 1000
-				v := 200 + rand.Float32()
-
-				var fieldValue taosUtil.FieldValue
-				if a%2 == 0 {
-					fieldValue = taosUtil.FieldValue{
-						Name:  fieldName,
-						Value: v,
-					}
-				} else {
-					fieldValue = taosUtil.FieldValue{
-						Name:  fieldName,
-						Value: f,
-					}
-				}
-				fieldValues = append(fieldValues, fieldValue)
-			}
-			rowValues[j] = taosUtil.RowValue{Fields: fieldValues}
-			start += 1000
-		}
-		subTableValue.Values = rowValues
-		subTableValues = append(subTableValues, subTableValue)
+func main() {
+	fmt.Println("设备接入启动.")
+	defer db.Close()
+	mqttInfos, err := mysqlUtil.GetAll("SELECT c_ip,c_port FROM t_mqtt_info WHERE c_state = 1")
+	checkErr(err, "get mqtt info sql")
+	if len(mqttInfos) == 0 {
+		fmt.Println("无启用的mqtt服务器.")
+		return
 	}
-	return subTableValues
+	mqttTopics, err := mysqlUtil.GetAll("SELECT c_topic,c_device,c_method_index FROM t_mqtt_topic WHERE c_state = 1")
+	if len(mqttTopics) == 0 {
+		fmt.Println("无启用的主题.")
+		return
+	}
+	mqttAddrs := convertMqttAddr(mqttInfos)
+	topics := make(map[string]byte)
+	topicByIndex := make(map[string]int)
+	topicByDevice := make(map[string]string)
+	for _, topicMap := range mqttTopics {
+		top := topicMap["c_topic"]
+		topics[top] = 2
+		methodIndex, _ := strconv.Atoi(topicMap["c_method_index"])
+		topicByIndex[top] = methodIndex
+		topicByDevice[top] = topicMap["c_device"]
+	}
+	queue.RunDeviceQueue()
+	mqttConnection.Host = mqttAddrs
+	mqttConnection.Connection(func(client mqtt.Client, msg mqtt.Message) {
+		fmt.Printf("TOPIC: %s\n", msg.Topic())
+		fmt.Printf("MSG: %s\n", msg.Payload())
+		payload := string(msg.Payload())
+		if payload == "" {
+			return
+		}
+		topic := msg.Topic()
+		index, ok := topicByIndex[topic]
+		if !ok {
+			return
+		}
+		device := topicByDevice[topic]
+		bean := entity.DeviceReceiveBean{Topic: topic, Device: device, MethodIndex: index, Payload: payload}
+		queue.EventQueue <- bean
+	})
+	defer mqttConnection.Disconnection(250)
+	err = mqttConnection.Subscribe(topics, nil)
+	rc := redisUtil.Redis{}
+	for {
+		time.Sleep(time.Second * 60)
+		flag, e := rc.Get(10, "deviceReceiveConfigFlag")
+		checkErr(e, "redis get deviceReceiveConfigFlag")
+		if flag != "" && flag == "1" {
+			er := rc.Set(10, "deviceReceiveConfigFlag", "0", 0)
+			checkErr(er, "redis set deviceReceiveConfigFlag")
+			break
+		}
+	}
+}
 
+func convertMqttAddr(infos []map[string]string) []string {
+	result := make([]string, len(infos))
+	for i, info := range infos {
+		result[i] = "tcp://" + info["c_ip"] + ":" + info["c_port"]
+	}
+	return result
 }
 
 func initMysql() *sql.DB {

@@ -11,7 +11,7 @@ import (
 
 var (
 	EventQueue     = make(chan entity.DeviceReceiveBean, 10000)
-	batchSize      = 1000
+	batchSize      = 10
 	workers        = 1
 	batchProcessor = func(batch []entity.DeviceReceiveBean) (e error) {
 		defer func() {
@@ -39,32 +39,32 @@ var (
 		for k, v := range groupByMethod {
 			if k == 1 {
 				results := make([]entity.DeviceStandardBean, 0)
-				type selfData struct {
-					device    string
-					item_code string
-					value     string
+				type SelfData struct {
+					Device   string
+					ItemCode string `json:"item_code"`
+					Value    string
 				}
-				type selfJson struct {
-					time time.Time
-					data []selfData
+				type SelfJson struct {
+					Time entity.Time
+					Data []SelfData
 				}
 				for _, bean := range v {
 					payload := bean.Payload
 					if payload == "" {
 						continue
 					}
-					var jsonObject selfJson
+					var jsonObject SelfJson
 					err := json.Unmarshal([]byte(payload), &jsonObject)
 					if err != nil {
 						fmt.Printf("解析json错误,device:%v,topic:%v,error:%v", bean.Device, bean.Topic, err.Error())
 						continue
 					}
-					time := jsonObject.time
-					payloadArray := jsonObject.data
+					time := time.Time(jsonObject.Time)
+					payloadArray := jsonObject.Data
 					for _, data := range payloadArray {
-						device := data.device
-						code := data.item_code
-						value := data.value
+						device := data.Device
+						code := data.ItemCode
+						value := data.Value
 						if device == "" || code == "" || value == "" {
 							continue
 						}
@@ -95,11 +95,12 @@ var (
 		fmt.Println("device queue error : ", err.Error())
 	}
 	getRedisData = func(time time.Time, value interface{}) string {
-		type jsonObject struct {
-			v_data  string
-			v_value string
+		type JsonObject struct {
+			Date  string `json:"v_date"`
+			Value string `json:"v_value"`
 		}
-		marshal, _ := json.Marshal(jsonObject{time.Format("2006-01-02 15:04:05"), value.(string)})
+		redisValue := JsonObject{Date: time.Format("2006-01-02 15:04:05"), Value: value.(string)}
+		marshal, _ := json.Marshal(redisValue)
 		return string(marshal)
 	}
 )

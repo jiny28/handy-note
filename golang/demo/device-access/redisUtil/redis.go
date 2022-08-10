@@ -41,7 +41,11 @@ func GetConnection() *redis.Client {
 func (r Redis) Get(db int, key string) (string, error) {
 	connection := GetConnection()
 	connection.Do("select", db)
-	return connection.Get(key).Result()
+	result, err := connection.Get(key).Result()
+	if err == redis.Nil {
+		fmt.Println("redis get value not found .")
+	}
+	return result, nil
 }
 func (r Redis) Set(db int, key string, value interface{}, expiration time.Duration) error {
 	connection := GetConnection()

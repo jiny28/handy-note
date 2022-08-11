@@ -3,6 +3,7 @@ package queue
 import (
 	"device-access/entity"
 	"device-access/redisUtil"
+	"device-access/taosUtil"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,8 +11,15 @@ import (
 )
 
 var (
+	taosInfo = taosUtil.TaosInfo{
+		HostName:   "taos-server",
+		ServerPort: 6030,
+		User:       "root",
+		Password:   "taosdata",
+		DbName:     "hlhz1",
+	}
 	EventQueue     = make(chan entity.DeviceReceiveBean, 10000)
-	batchSize      = 10
+	batchSize      = 200
 	workers        = 1
 	batchProcessor = func(batch []entity.DeviceReceiveBean) (e error) {
 		defer func() {
@@ -24,6 +32,7 @@ var (
 				}
 			}
 		}()
+		funStart := time.Now()
 		rc := redisUtil.Redis{}
 		groupByMethod := make(map[int][]entity.DeviceReceiveBean)
 		for _, bean := range batch {
@@ -77,18 +86,48 @@ var (
 					return
 				}
 				redisData := make(map[string]interface{})
+				taosData := make(map[string]map[int64]map[string]interface{})
 				for _, bean := range results {
 					device := bean.Device
 					code := bean.ItemCode
 					time := bean.Time
 					value := bean.Value
-					redisData[device+"-"+code] = getRedisData(time, value)
+					redisData[device+"_"+code] = getRedisData(time, value)
+					timeLong := time.UnixNano() / 1e6
+					v, ok := taosData[device]
+					tmap := make(map[int64]map[string]interface{})
+					if ok {
+						tmap = v
+						vv, ok := tmap[timeLong]
+						var vmap = make(map[string]interface{})
+						if ok {
+							vmap = vv
+						}
+						vmap[code] = value
+						tmap[timeLong] = vmap
+					} else {
+						var vmap = make(map[string]interface{})
+						vmap[code] = value
+						tmap[timeLong] = vmap
+					}
+					taosData[device] = tmap
 				}
+				subTableValue := gerSubTableValue(taosData)
+				fmt.Printf("解析过程耗时(batch:%v) = %v\n", batchSize, time.Since(funStart))
+				taosStart := time.Now()
+				_, e := taosUtil.InsertAutoCreateTable(subTableValue)
+				fmt.Printf("taos insert 耗时(batch:%v) = %v\n", batchSize, time.Since(taosStart))
+				if e != nil {
+					fmt.Printf("taos insert error:" + e.Error())
+				}
+				redisStart := time.Now()
 				rc.BatchSet(0, redisData, 0)
+				fmt.Printf("redis insert 耗时(batch:%v) = %v\n", batchSize, time.Since(redisStart))
 			} else if k == 2 {
 
 			}
 		}
+		fmt.Printf("整个函数耗时 = %v\n", time.Since(funStart))
 		return
 	}
 	errHandler = func(err error, batch []entity.DeviceReceiveBean) {
@@ -103,7 +142,46 @@ var (
 		marshal, _ := json.Marshal(redisValue)
 		return string(marshal)
 	}
+	gerSubTableValue = func(data map[string]map[int64]map[string]interface{}) []taosUtil.SubTableValue {
+		var result = make([]taosUtil.SubTableValue, 0)
+		for device, v := range data {
+			var subTableValue taosUtil.SubTableValue
+			subTableValue.Name = device + "_sub"
+			subTableValue.SuperTable = device
+			tags := []taosUtil.TagValue{
+				{
+					Name:  "device",
+					Value: device,
+				},
+			}
+			subTableValue.Tags = tags
+			rowValues := make([]taosUtil.RowValue, len(v))
+			var num = 0
+			for time, tv := range v {
+				fieldValues := make([]taosUtil.FieldValue, 0)
+				fieldValues = append(fieldValues, taosUtil.FieldValue{
+					Name:  "ts",
+					Value: time,
+				})
+				for ik, iv := range tv {
+					fieldValues = append(fieldValues, taosUtil.FieldValue{
+						Name:  ik,
+						Value: iv,
+					})
+				}
+				rowValues[num] = taosUtil.RowValue{Fields: fieldValues}
+				num++
+			}
+			subTableValue.Values = rowValues
+			result = append(result, subTableValue)
+		}
+		return result
+	}
 )
+
+func init() {
+	taosUtil.Connection(taosInfo)
+}
 
 func RunDeviceQueue() {
 	for i := 0; i < workers; i++ {

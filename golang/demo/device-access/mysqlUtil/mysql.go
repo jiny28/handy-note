@@ -32,17 +32,33 @@ func Connection(info MysqlInfo) (*sql.DB, error) {
 }
 
 //Add new record to table
-func Add(insertSql string, args ...interface{}) (int64, error) {
-	stmt, err := MyDB.Prepare(insertSql)
+func Add(insertSql string, args ...[]interface{}) (bool, error) {
+	tx, err := MyDB.Begin()
 	if err != nil {
-		return 0, err
+		return false, err
+	}
+	stmt, err := tx.Prepare(insertSql)
+	if err != nil {
+		return false, err
 	}
 	defer stmt.Close()
-	result, err := stmt.Exec(args...)
-	if err != nil {
-		return 0, err
+	for _, arg := range args {
+		_, err := stmt.Exec(arg)
+		if err != nil {
+			return false, err
+		}
 	}
-	return result.LastInsertId()
+	if err != nil {
+		err := tx.Rollback()
+		if err != nil {
+			return false, err
+		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 //Exe commands

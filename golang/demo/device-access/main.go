@@ -7,7 +7,6 @@ import (
 	"device-access/mysqlUtil"
 	"device-access/queue"
 	"device-access/redisUtil"
-	"device-access/taosUtil"
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"strconv"
@@ -36,14 +35,6 @@ var redisInfo = redisUtil.RedisInfo{
 	Port:     63799,
 	Password: "xapp",
 	Db:       0,
-}
-
-var taosInfo = taosUtil.TaosInfo{
-	HostName:   "taos-server",
-	ServerPort: 6030,
-	User:       "root",
-	Password:   "taosdata",
-	DbName:     "hlhz",
 }
 
 var db *sql.DB
@@ -81,8 +72,6 @@ func main() {
 	queue.RunDeviceQueue()
 	mqttConnection.Host = mqttAddrs
 	mqttConnection.Connection(func(client mqtt.Client, msg mqtt.Message) {
-		fmt.Printf("TOPIC: %s\n", msg.Topic())
-		fmt.Printf("MSG: %s\n", msg.Payload())
 		payload := string(msg.Payload())
 		if payload == "" {
 			return

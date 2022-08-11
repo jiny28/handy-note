@@ -73,11 +73,22 @@ func insertMultiTableMultiValuesUsingSuperTable(subTableValue []SubTableValue) s
 		buffer.WriteString(tableValue.SuperTable)
 		buffer.WriteString(" tags ")
 		buffer.WriteString(tagValues(tableValue.Tags))
+		buffer.WriteString(" ")
+		buffer.WriteString(rowFields(tableValue.Values))
 		buffer.WriteString(" values ")
 		buffer.WriteString(rowValues(tableValue.Values))
 		tableArray[i] = buffer.String()
 	}
 	return head + strings.Join(tableArray, " ")
+}
+
+func rowFields(values []RowValue) string {
+	row := values[0].Fields
+	array := make([]string, len(row))
+	for i, value := range row {
+		array[i] = value.Name
+	}
+	return "(" + strings.Join(array, ",") + ")"
 }
 
 func rowValues(values []RowValue) string {

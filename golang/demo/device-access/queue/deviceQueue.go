@@ -198,6 +198,8 @@ func RunDeviceQueue() {
 						errHandler(err, batch)
 					}
 					batch = make([]entity.DeviceReceiveBean, 0)
+					/*default:
+					fmt.Println("no data")*/
 				}
 			}
 		}()

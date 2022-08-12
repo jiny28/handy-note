@@ -17,6 +17,8 @@ RUN go build -o app
 FROM ubuntu:20.04
 RUN apt-get update && apt-get install -y wget
 ENV TDENGINE_VERSION=2.6.0.6
+ENV TZ=Asia/Shanghai \
+    DEBIAN_FRONTEND=noninteractive
 RUN wget -c https://www.taosdata.com/assets-download/TDengine-client-${TDENGINE_VERSION}-Linux-x64.tar.gz \
    && tar xvf TDengine-client-${TDENGINE_VERSION}-Linux-x64.tar.gz \
    && cd TDengine-client-${TDENGINE_VERSION} \
@@ -24,7 +26,10 @@ RUN wget -c https://www.taosdata.com/assets-download/TDengine-client-${TDENGINE_
    && cd ../ \
    && rm -rf TDengine-client-${TDENGINE_VERSION}-Linux-x64.tar.gz TDengine-client-${TDENGINE_VERSION}
 
-RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
-    && echo 'Asia/Shanghai' >/etc/timezone
+RUN apt install -y tzdata \
+    && ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime \
+    && echo ${TZ} > /etc/timezone \
+    && dpkg-reconfigure --frontend noninteractive tzdata \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/app /usr/bin/
 CMD ["app"]

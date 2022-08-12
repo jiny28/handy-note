@@ -1,7 +1,10 @@
 package mqttUtil
 
 import (
+	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"log"
+	"os"
 	"time"
 )
 
@@ -20,7 +23,7 @@ type MqttConnection struct {
 
 func (m *MqttConnection) Connection(f mqtt.MessageHandler) {
 	//mqtt.DEBUG = log.New(os.Stdout, "", 0)
-	//mqtt.ERROR = log.New(os.Stdout, "", 0)
+	mqtt.ERROR = log.New(os.Stdout, "", 0)
 	opts := mqtt.NewClientOptions()
 	for _, v := range m.Host {
 		opts.AddBroker(v)
@@ -30,16 +33,23 @@ func (m *MqttConnection) Connection(f mqtt.MessageHandler) {
 	opts.SetPassword(m.Password)
 	opts.SetAutoReconnect(m.AutomaticReconnect)
 	opts.SetCleanSession(m.CleanSession)
-	opts.SetKeepAlive(60 * time.Second)
-	opts.SetPingTimeout(1 * time.Second)
+	opts.SetKeepAlive(0 * time.Second)
+	//opts.SetPingTimeout(50 * time.Second)
 	// 设置消息回调处理函数
 	opts.SetDefaultPublishHandler(f)
+	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
+		fmt.Println("mqtt connection error :" + err.Error())
+	})
+	opts.SetReconnectingHandler(func(client mqtt.Client, options *mqtt.ClientOptions) {
+		fmt.Println("mqtt reconnection .")
+	})
+	opts.SetOnConnectHandler(func(client mqtt.Client) {
+		fmt.Println("mqtt connection success")
+	})
 	m.connClient = mqtt.NewClient(opts)
 	if token := m.connClient.Connect(); token.WaitTimeout(time.Duration(actionTimeout)*time.Second) && token.Error() != nil {
 		panic(token.Error())
-
 	}
-	mqtt.DEBUG.Println("mqtt connection success")
 }
 
 func (m *MqttConnection) Subscribe(topics map[string]byte, callback mqtt.MessageHandler) error {

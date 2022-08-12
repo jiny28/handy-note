@@ -27,7 +27,7 @@ var mqttConnection = mqttUtil.MqttConnection{
 	Username:           "hlhz",
 	Password:           "hlhz.123456",
 	AutomaticReconnect: true,
-	CleanSession:       true,
+	CleanSession:       false,
 }
 
 var redisInfo = redisUtil.RedisInfo{

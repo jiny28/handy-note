@@ -32,7 +32,7 @@ var (
 				}
 			}
 		}()
-		funStart := time.Now()
+		//funStart := time.Now()
 		rc := redisUtil.Redis{}
 		groupByMethod := make(map[int][]entity.DeviceReceiveBean)
 		for _, bean := range batch {
@@ -113,21 +113,21 @@ var (
 					taosData[device] = tmap
 				}
 				subTableValue := gerSubTableValue(taosData)
-				fmt.Printf("解析过程耗时(batch:%v) = %v\n", batchSize, time.Since(funStart))
-				taosStart := time.Now()
+				//fmt.Printf("解析过程耗时(batch:%v) = %v\n", batchSize, time.Since(funStart))
+				//taosStart := time.Now()
 				_, e := taosUtil.InsertAutoCreateTable(subTableValue)
-				fmt.Printf("taos insert 耗时(batch:%v) = %v\n", batchSize, time.Since(taosStart))
+				//fmt.Printf("taos insert 耗时(batch:%v) = %v\n", batchSize, time.Since(taosStart))
 				if e != nil {
 					fmt.Printf("taos insert error:" + e.Error())
 				}
-				redisStart := time.Now()
+				//redisStart := time.Now()
 				rc.BatchSet(0, redisData, 0)
-				fmt.Printf("redis insert 耗时(batch:%v) = %v\n", batchSize, time.Since(redisStart))
+				//fmt.Printf("redis insert 耗时(batch:%v) = %v\n", batchSize, time.Since(redisStart))
 			} else if k == 2 {
 
 			}
 		}
-		fmt.Printf("整个函数耗时 = %v\n", time.Since(funStart))
+		//fmt.Printf("整个函数耗时 = %v\n", time.Since(funStart))
 		return
 	}
 	errHandler = func(err error, batch []entity.DeviceReceiveBean) {

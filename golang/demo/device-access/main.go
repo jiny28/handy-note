@@ -83,6 +83,9 @@ func main() {
 		}
 		device := topicByDevice[topic]
 		bean := entity.DeviceReceiveBean{Topic: topic, Device: device, MethodIndex: index, Payload: payload}
+		/*if bean.Device == "" {
+			fmt.Println("not use")
+		}*/
 		queue.EventQueue <- bean
 	})
 	defer mqttConnection.Disconnection(250)

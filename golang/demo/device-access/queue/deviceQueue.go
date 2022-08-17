@@ -19,8 +19,8 @@ var (
 		DbName:     "hlhz1",
 	}
 	EventQueue     = make(chan entity.DeviceReceiveBean, 10000)
-	batchSize      = 200
-	workers        = 1
+	batchSize      = 250
+	workers        = 4
 	batchProcessor = func(batch []entity.DeviceReceiveBean) (e error) {
 		defer func() {
 			if err := recover(); err != nil {
@@ -32,7 +32,7 @@ var (
 				}
 			}
 		}()
-		//funStart := time.Now()
+		funStart := time.Now()
 		rc := redisUtil.Redis{}
 		groupByMethod := make(map[int][]entity.DeviceReceiveBean)
 		for _, bean := range batch {
@@ -113,21 +113,21 @@ var (
 					taosData[device] = tmap
 				}
 				subTableValue := gerSubTableValue(taosData)
-				//fmt.Printf("解析过程耗时(batch:%v) = %v\n", batchSize, time.Since(funStart))
-				//taosStart := time.Now()
+				fmt.Printf("解析过程耗时(batch:%v) = %v\n", batchSize, time.Since(funStart))
+				taosStart := time.Now()
 				_, e := taosUtil.InsertAutoCreateTable(subTableValue)
-				//fmt.Printf("taos insert 耗时(batch:%v) = %v\n", batchSize, time.Since(taosStart))
+				fmt.Printf("taos insert 耗时(batch:%v) = %v\n", batchSize, time.Since(taosStart))
 				if e != nil {
 					fmt.Printf("taos insert error:" + e.Error())
 				}
-				//redisStart := time.Now()
+				redisStart := time.Now()
 				rc.BatchSet(0, redisData, 0)
-				//fmt.Printf("redis insert 耗时(batch:%v) = %v\n", batchSize, time.Since(redisStart))
+				fmt.Printf("redis insert 耗时(batch:%v) = %v\n", batchSize, time.Since(redisStart))
 			} else if k == 2 {
 
 			}
 		}
-		//fmt.Printf("整个函数耗时 = %v\n", time.Since(funStart))
+		fmt.Printf("整个函数耗时 = %v\n", time.Since(funStart))
 		return
 	}
 	errHandler = func(err error, batch []entity.DeviceReceiveBean) {
@@ -186,6 +186,21 @@ func init() {
 func RunDeviceQueue() {
 	for i := 0; i < workers; i++ {
 		go func() {
+			/*for {
+				var batch []entity.DeviceReceiveBean
+				lens := len(EventQueue)
+				if lens > batchSize {
+					lens = batchSize
+				}
+				for o := 0; o < lens; o++ {
+					msg := <-EventQueue
+					batch = append(batch, msg)
+				}
+				if err := batchProcessor(batch); err != nil {
+					errHandler(err, batch)
+				}
+				time.Sleep(time.Millisecond * 200)
+			}*/
 			var batch []entity.DeviceReceiveBean
 			for {
 				select {
@@ -198,8 +213,6 @@ func RunDeviceQueue() {
 						errHandler(err, batch)
 					}
 					batch = make([]entity.DeviceReceiveBean, 0)
-					/*default:
-					fmt.Println("no data")*/
 				}
 			}
 		}()

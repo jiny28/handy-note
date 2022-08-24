@@ -87,6 +87,7 @@ var (
 				}
 				redisData := make(map[string]interface{})
 				taosData := make(map[string]map[int64]map[string]interface{})
+				fmt.Println("数据本身时间:", results[0].Time.Format("2006-01-02 15:04:05"), "当前时间为：", funStart.Format("2006-01-02 15:04:05"))
 				for _, bean := range results {
 					device := bean.Device
 					code := bean.ItemCode

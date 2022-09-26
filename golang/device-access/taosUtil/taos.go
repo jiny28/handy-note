@@ -41,12 +41,14 @@ type FieldValue struct {
 }
 
 var TaosDb *sql.DB
+var sourceDatabase string
 
 func Connection(info TaosInfo) (*sql.DB, error) {
 	url := "root:taosdata@/tcp(" + info.HostName + ":" + strconv.Itoa(info.ServerPort) + ")/" + info.DbName
 	url += "?charset=utf-8&locale=en_US.UTF-8&timezone=UTC-8&maxSQLLength=1048576"
 	var error error
 	TaosDb, error = sql.Open("taosSql", url)
+	sourceDatabase = info.DbName
 	return TaosDb, error
 }
 
@@ -119,7 +121,13 @@ func tagValues(tags []TagValue) string {
 	return "(" + strings.Join(tableArray, ",") + ")"
 }
 
-func ExecuteQuery(sqlStr string) ([]map[string]string, error) {
+func ExecuteQuery(sqlStr string, database string) ([]map[string]string, error) {
+	if database != "" {
+		err := UseDatabase(database)
+		if err != nil {
+			return nil, err
+		}
+	}
 	rows, err := TaosDb.Query(sqlStr)
 	if err != nil {
 		return nil, err
@@ -148,9 +156,17 @@ func ExecuteQuery(sqlStr string) ([]map[string]string, error) {
 			} else {
 				value = string(col)
 			}
+			if columns[i] == "ts" {
+				// 时间转时间戳 2022-08-19T17:56:57+08:00
+				time, _ := time.ParseInLocation(time.RFC3339, value, time.Local)
+				value = strconv.FormatInt(time.UnixNano()/1e6, 10)
+			}
 			vmap[columns[i]] = value
 		}
 		ret = append(ret, vmap)
+	}
+	if database != "" {
+		UseDatabase(sourceDatabase)
 	}
 	return ret, err
 }

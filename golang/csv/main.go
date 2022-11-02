@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"dewesoftCsv/taosUtil"
+	"csv/taosUtil"
 	"encoding/csv"
 	"fmt"
 	"io/ioutil"
@@ -18,13 +18,10 @@ var taosInfo = taosUtil.TaosInfo{
 	ServerPort: 6030,
 	User:       "root",
 	Password:   "taosdata",
-	DbName:     "hdb",
+	DbName:     "hlhz",
 }
 var wg sync.WaitGroup
 
-func init() {
-	taosUtil.Connection(taosInfo)
-}
 func main() {
 	rootDir := "D:/csv/"
 	files, _ := ioutil.ReadDir(rootDir)
@@ -32,7 +29,7 @@ func main() {
 	for _, f := range files {
 		if strings.Contains(f.Name(), ".csv") {
 			s := strings.Split(f.Name(), "-")[1]
-			if len(s) != 13 {
+			if len(s) != 17 {
 				fmt.Println(f.Name() + "文件开始时间无效")
 				return
 			}
@@ -49,6 +46,7 @@ func main() {
 		stat, err := os.Stat(v)
 		checkErr(err, "file stat error")
 		start := strings.Split(stat.Name(), "-")[1]
+		start = strings.Split(start, ".")[0]
 		startTime, err := strconv.ParseInt(start, 10, 64)
 		checkErr(err, "开始时间格式不正确")
 		csvFile, err := os.Open(v)
@@ -60,10 +58,12 @@ func main() {
 		csvFile.Close()
 		if indexRecode == 3 {
 			writeTaosVo(lines, startTime)
-		} else if indexRecode == 13 {
+		} else if indexRecode == 10 {
 			writeTaosCur(lines, startTime)
 		}
 		fmt.Printf("总耗时：%v\n", time.Since(sinceStart))
+		delFiles([]string{v})
+		fmt.Println("删除文件:" + v)
 	}
 
 }
@@ -78,7 +78,7 @@ func writeTaosCur(lines [][]string, startTime int64) {
 			continue
 		}
 		line := lines[i]
-		ts, v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11 := line[0], line[1], line[2], line[3], line[4], line[5], line[6], line[7], line[8], line[9], line[10], line[11], line[12]
+		ts, v0, v1, v2, v3, v4, v5, v6, v7, v8 := line[0], line[1], line[2], line[3], line[4], line[5], line[6], line[7], line[8], line[9]
 		tsFloat, _ := strconv.ParseFloat(ts, 64)
 		tsFloat = tsFloat * 1e6
 		exeTs := int64(tsFloat) + startTime
@@ -113,15 +113,6 @@ func writeTaosCur(lines [][]string, startTime int64) {
 			}, {
 				Name:  "value8",
 				Value: v8,
-			}, {
-				Name:  "value9",
-				Value: v9,
-			}, {
-				Name:  "value10",
-				Value: v10,
-			}, {
-				Name:  "value11",
-				Value: v11,
 			},
 		}
 		rowValues = append(rowValues, taosUtil.RowValue{Fields: fieldValues})
@@ -142,7 +133,7 @@ func writeTaosCur(lines [][]string, startTime int64) {
 		}
 	}
 	fmt.Println(len(result))
-	groupSize := 80 // 每个线程执行40个对象
+	groupSize := len(result)/2 + 1 // 每个线程执行40个对象
 	startInsert(groupSize, result)
 }
 
@@ -191,7 +182,8 @@ func writeTaosVo(lines [][]string, startTime int64) {
 			rowValues = make([]taosUtil.RowValue, 0)
 		}
 	}
-	groupSize := 40 // 每个线程执行40个对象
+	groupSize := len(result)/2 + 1 // 每个线程执行40个对象
+	fmt.Println(len(result))
 	startInsert(groupSize, result)
 }
 func insert(array []taosUtil.SubTableValue) {
@@ -199,6 +191,7 @@ func insert(array []taosUtil.SubTableValue) {
 	for i := range array {
 		_, err := taosUtil.InsertAutoCreateTable(array[i : i+1])
 		checkErr(err, "taos insert error")
+		//time.Sleep(time.Millisecond * 200)
 	}
 }
 func startInsert(groupSize int, result []taosUtil.SubTableValue) {
@@ -245,13 +238,8 @@ func checkErr(err error, prompt string) {
 	}
 }
 
-/*func test() {
-	start := time.Now()
-	splitter := splitCsv.New()
-	splitter.FileChunkSize = 1024 * 1024 * 500 //in bytes (100MB)
-	result, err := splitter.Split("D:/csv/Test929-1664436811000.csv", "D:/csv/split/")
-	checkErr(err, "")
-	fmt.Println(result)
-	delFiles(result)
-	fmt.Println(time.Since(start))
-}*/
+func init() {
+
+	taosUtil.Connection(taosInfo)
+
+}

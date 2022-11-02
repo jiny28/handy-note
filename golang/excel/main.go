@@ -66,7 +66,7 @@ func main() {
 							excelTime := colCell
 							excelTimeLocal, err := time.ParseInLocation(layout, excelTime, time.UTC)
 							checkErr(err, "转换时间出错")
-							ts = excelTimeLocal.UnixNano() / 1e6
+							ts = excelTimeLocal.UnixNano() / 1e3
 						} else {
 							tableName := fieldNames[index]
 							subTable := getSubTableValue(ts, tableName, colCell)

@@ -35,8 +35,8 @@ var taosInfo = taosUtil.TaosInfo{
 var db *sql.DB
 var deviceIpMapping map[string]string
 var deviceCount map[string]int
-var itemMapping map[string][]map[string]string
 var resultData map[string][]string
+var itemMapping map[string][]map[string]string
 
 func init() {
 	db = initMysql()

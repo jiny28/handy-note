@@ -23,18 +23,20 @@ class SuperTableTest {
     void createStable() {
         //CREATE STABLE meters (ts timestamp, current float, voltage int, phase float) TAGS (location binary(64), groupId int);
         // generate fields
-        List<FieldMeta> fieldMetas = new ArrayList<>();
-        fieldMetas.add(new FieldMeta("ts", "TIMESTAMP"));
-        for (int i = 0; i < 200; i++) {
-            String fieldName = "field" + i;
-            String fieldType = i % 2 == 0 ? "FLOAT" : "INT";
-            fieldMetas.add(new FieldMeta(fieldName, fieldType));
+        for (int j = 0; j < 1000; j++) {
+            List<FieldMeta> fieldMetas = new ArrayList<>();
+            fieldMetas.add(new FieldMeta("ts", "TIMESTAMP"));
+            for (int i = 0; i < 200; i++) {
+                String fieldName = "item" + i;
+                //String fieldType =i%2 == 0 ? "DOUBLE" : "BINARY(64)";
+                String fieldType ="DOUBLE";
+                fieldMetas.add(new FieldMeta(fieldName, fieldType));
+            }
+            SuperTableMeta superTableMeta = new SuperTableMeta("hlhz1", "device"+j, fieldMetas, new ArrayList<TagMeta>() {{
+                add(new TagMeta("device", "BINARY(64)"));
+            }});
+            superTableInterface.create(superTableMeta);
         }
-        SuperTableMeta superTableMeta = new SuperTableMeta("", "meters", fieldMetas, new ArrayList<TagMeta>() {{
-            add(new TagMeta("location", "BINARY(64)"));
-            add(new TagMeta("groupId", "INT"));
-        }});
-        superTableInterface.create(superTableMeta);
     }
 
 

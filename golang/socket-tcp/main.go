@@ -3,10 +3,12 @@ package main
 import (
 	"database/sql"
 	"encoding/hex"
+	"flag"
 	"fmt"
 	"io"
 	"net"
 	"socket-tcp/mysqlUtil"
+	"socket-tcp/taosUtil"
 	"strconv"
 	"strings"
 	"time"
@@ -14,6 +16,7 @@ import (
 
 var buffer = 2048
 var port = ":60382"
+var group = 500 // 一组队列的数量
 var mysqlInfo = mysqlUtil.MysqlInfo{
 	UserName: "root",
 	Password: "123456",
@@ -21,18 +24,29 @@ var mysqlInfo = mysqlUtil.MysqlInfo{
 	Port:     33066,
 	Db:       "data",
 }
+var taosInfo = taosUtil.TaosInfo{
+	HostName:   "taos-server",
+	ServerPort: 6030,
+	User:       "root",
+	Password:   "taosdata",
+	DbName:     "hlhz",
+}
+
 var db *sql.DB
 var deviceIpMapping map[string]string
 var deviceCount map[string]int
 var itemMapping map[string][]map[string]string
+var resultData map[string][]string
 
 func init() {
 	db = initMysql()
+	taosUtil.Connection(taosInfo)
 	list, err := mysqlUtil.GetAll("select * from t_device")
 	checkErr(err, "get info sql")
 	deviceIpMapping = make(map[string]string)
 	deviceCount = make(map[string]int)
 	itemMapping = make(map[string][]map[string]string)
+	resultData = make(map[string][]string)
 	for _, v := range list {
 		device := v["c_device"]
 		ip := v["c_ip"]
@@ -64,7 +78,10 @@ func initMysql() *sql.DB {
 	return db
 }
 
+var pData = flag.Int("p", 1, "print data log")
+
 func main() {
+	flag.Parse()
 	l, err := net.Listen("tcp", port)
 	if err != nil {
 		fmt.Println("listen error:", err)
@@ -72,6 +89,7 @@ func main() {
 	}
 	defer l.Close()
 	defer db.Close()
+	RunQueue()
 	for {
 		c, err := l.Accept()
 		if err != nil {
@@ -84,7 +102,7 @@ func main() {
 
 func handleConn(c net.Conn) {
 	ip := strings.Split(c.RemoteAddr().String(), ":")[0]
-	fmt.Println("ip" + ip)
+	fmt.Println("开始处理ip:" + ip)
 	var builder strings.Builder
 	defer fmt.Println("线程结束：" + ip)
 	defer c.Close()
@@ -192,17 +210,19 @@ func readHexHaveHeadStatus(data string, device string) {
 		sb.WriteString(value)
 		sb.WriteString(",")
 	}
-	fmt.Println("打印数据状态：" + sb.String())
+	if *pData == 1 {
+		fmt.Println("打印状态数据：" + sb.String())
+	}
 }
 
 func readHexHaveHead(data string, device string) {
 	//插入条数  上一次统计
-	/*lastcount, ok := deviceCount[device]
+	lastcount, ok := deviceCount[device]
 	if !ok {
 		lastcount = 0
 		deviceCount[device] = lastcount
 	}
-	nowCount := lastcount + 1*/
+	nowCount := lastcount + 1
 	itemInfo := itemMapping[device]
 	startIndex := 0 //byte截取下标
 	var sb strings.Builder
@@ -226,8 +246,28 @@ func readHexHaveHead(data string, device string) {
 		sb.WriteString(value)
 		sb.WriteString(",")
 	}
-	fmt.Println("打印事件数据:" + sb.String())
+	strData := sb.String()[0 : sb.Len()-1]
+	if *pData == 1 {
+		fmt.Println("打印事件数据:" + sb.String())
+	}
+	listStr, ok := resultData[device]
+	if !ok {
+		listStr = make([]string, 0)
+	}
+	listStr = append(listStr, strData)
+	resultData[device] = listStr
+	if group == nowCount {
+		deviceCount[device] = 0
+		poll := resultData[device]
+		m := make(map[string][]string)
+		m[device] = poll
+		EventQueue <- m
+		delete(resultData, device)
+	} else {
+		deviceCount[device] = nowCount
+	}
 }
+
 func toInt(str string) int {
 	i, err := strconv.ParseInt(str, 16, 32)
 	checkErr(err, "转换值错误")

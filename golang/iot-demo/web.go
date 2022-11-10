@@ -72,7 +72,14 @@ func getData(w http.ResponseWriter, r *http.Request) {
 }
 
 func realData(w http.ResponseWriter, r *http.Request) {
-	query, _ := taosUtil.ExecuteQuery("select last_row(*) from device", "")
+	r.ParseForm() // 解析参数，默认是不会解析的
+	device, ok := r.Form["device"]
+	if !ok {
+		fmt.Fprintf(w, getErrorRes("未选择开始时间."))
+		return
+	}
+	sql := fmt.Sprintf("select last_row(*) from %v", device[0])
+	query, _ := taosUtil.ExecuteQuery(sql, "")
 	if query == nil || len(query) == 0 {
 		fmt.Fprintf(w, getErrorRes("未查询到数据!"))
 		return

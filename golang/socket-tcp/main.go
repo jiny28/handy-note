@@ -11,6 +11,7 @@ import (
 	"socket-tcp/taosUtil"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -20,7 +21,7 @@ var group = 500 // 一组队列的数量
 var mysqlInfo = mysqlUtil.MysqlInfo{
 	UserName: "root",
 	Password: "123456",
-	Ip:       "10.88.0.14",
+	Ip:       "127.0.0.1",
 	Port:     33066,
 	Db:       "data",
 }
@@ -29,13 +30,13 @@ var taosInfo = taosUtil.TaosInfo{
 	ServerPort: 6030,
 	User:       "root",
 	Password:   "taosdata",
-	DbName:     "hlhz",
+	DbName:     "insert0",
 }
 
 var db *sql.DB
 var deviceIpMapping map[string]string
-var deviceCount map[string]int
-var resultData map[string][]string
+var deviceCount sync.Map
+var resultData sync.Map
 var itemMapping map[string][]map[string]string
 
 func init() {
@@ -44,9 +45,7 @@ func init() {
 	list, err := mysqlUtil.GetAll("select * from t_device")
 	checkErr(err, "get info sql")
 	deviceIpMapping = make(map[string]string)
-	deviceCount = make(map[string]int)
 	itemMapping = make(map[string][]map[string]string)
-	resultData = make(map[string][]string)
 	for _, v := range list {
 		device := v["c_device"]
 		ip := v["c_ip"]
@@ -217,10 +216,14 @@ func readHexHaveHeadStatus(data string, device string) {
 
 func readHexHaveHead(data string, device string) {
 	//插入条数  上一次统计
-	lastcount, ok := deviceCount[device]
-	if !ok {
+	lastcount := 0
+	value, ok := deviceCount.Load(device)
+	if ok {
+		// 有值
+		lastcount = value.(int)
+	} else {
 		lastcount = 0
-		deviceCount[device] = lastcount
+		deviceCount.Store(device, lastcount)
 	}
 	nowCount := lastcount + 1
 	itemInfo := itemMapping[device]
@@ -250,21 +253,24 @@ func readHexHaveHead(data string, device string) {
 	if *pData == 1 {
 		fmt.Println("打印事件数据:" + sb.String())
 	}
-	listStr, ok := resultData[device]
-	if !ok {
-		listStr = make([]string, 0)
+	listValue, ok := resultData.Load(device)
+	listStr := make([]string, 0)
+	if ok {
+		listStr = listValue.([]string)
 	}
 	listStr = append(listStr, strData)
-	resultData[device] = listStr
+	resultData.Store(device, listStr)
 	if group == nowCount {
-		deviceCount[device] = 0
-		poll := resultData[device]
+		deviceCount.Store(device, 0)
+		lPoll, _ := resultData.Load(device)
+		poll := make([]string, 0)
+		poll = lPoll.([]string)
 		m := make(map[string][]string)
 		m[device] = poll
 		EventQueue <- m
-		delete(resultData, device)
+		resultData.Delete(device)
 	} else {
-		deviceCount[device] = nowCount
+		deviceCount.Store(device, nowCount)
 	}
 }
 

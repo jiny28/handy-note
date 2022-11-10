@@ -64,8 +64,12 @@ func batchProcessor(batch []map[string][]string) {
 		}
 	}
 	taos := convertTaos(redisRes)
+	fmt.Printf("存储对象个数：%v\n", len(taos))
 	_, err := taosUtil.InsertAutoCreateTable(taos)
-	checkErr(err, "insert taos error")
+	if err != nil {
+		fmt.Println("insert taos error" + err.Error())
+	}
+	//checkErr(err, "insert taos error")
 }
 
 func convertTaos(redisRes map[string][]float64) []taosUtil.SubTableValue {

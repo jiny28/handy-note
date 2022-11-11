@@ -10,14 +10,27 @@ import (
 )
 
 var EventQueue = make(chan entity.DeviceReceiveBean, 1000000)
-var workers = 2
-var batchSize = 30
+var batchSize = 40
+var inter = 10 * time.Millisecond
+var poolNum = 5
+var jobQueueNum = 5
+var workerPool *WorkerPool
+
+func init() {
+	fmt.Printf("协程池初始化:poolNum:%v,jobQueueNum:%v\n", poolNum, jobQueueNum)
+	workerPool = NewWorkerPool(poolNum, jobQueueNum)
+	workerPool.Start()
+}
+
+type Task struct {
+	batch []entity.DeviceReceiveBean
+}
 
 func runDeviceQueue() {
-	//for i := 0; i < workers; i++ {
 	go func() {
 		for {
 			lens := len(EventQueue)
+			fmt.Printf("当前队列大小:%v\n", lens)
 			if lens == 0 {
 				time.Sleep(500 * time.Millisecond)
 				continue
@@ -30,13 +43,21 @@ func runDeviceQueue() {
 				msg := <-EventQueue
 				batch = append(batch, msg)
 			}
-			go batchProcessor(batch)
+			tJob := Task{batch: batch}
+			workerPool.JobQueue <- tJob
+			//batchProcessor(batch)
+			time.Sleep(inter)
 		}
 	}()
-	//}
 }
+
+func (t Task) RunTask(request interface{}) {
+	batchProcessor(t.batch)
+}
+
 func batchProcessor(batch []entity.DeviceReceiveBean) {
 	fmt.Printf("接收到数据：%v \n", len(batch))
+	startNow := time.Now()
 	result := make([]taosUtil.SubTableValue, 0)
 	for _, obj := range batch {
 		tags := []taosUtil.TagValue{
@@ -81,9 +102,12 @@ func batchProcessor(batch []entity.DeviceReceiveBean) {
 		subTableValue.Values = rowValues
 		result = append(result, subTableValue)
 	}
+	startTaos := time.Now()
 	_, err := taosUtil.InsertAutoCreateTable(result)
 	if err != nil {
 		fmt.Println("taos insert error :" + err.Error())
 		panic(err.Error())
 	}
+	fmt.Printf("save taos 耗时:%v\n", time.Since(startTaos))
+	fmt.Printf("batchProcessor 耗时:%v\n", time.Since(startNow))
 }

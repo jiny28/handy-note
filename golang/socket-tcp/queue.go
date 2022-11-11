@@ -10,13 +10,27 @@ import (
 )
 
 var EventQueue = make(chan map[string][]string, 10000)
-var workers = 2
 var batchSize = 5
+var inter = 100 * time.Millisecond
+var poolNum = 5
+var jobQueueNum = 5
+var workerPool *WorkerPool
+
+func init() {
+	fmt.Printf("协程池初始化:poolNum:%v,jobQueueNum:%v\n", poolNum, jobQueueNum)
+	workerPool = NewWorkerPool(poolNum, jobQueueNum)
+	workerPool.Start()
+}
+
+type Task struct {
+	batch []map[string][]string
+}
 
 func RunQueue() {
 	go func() {
 		for {
 			lens := len(EventQueue)
+			fmt.Printf("当前队列大小:%v\n", lens)
 			if lens == 0 {
 				time.Sleep(200 * time.Millisecond)
 				continue
@@ -29,12 +43,21 @@ func RunQueue() {
 				msg := <-EventQueue
 				batch = append(batch, msg)
 			}
-			go batchProcessor(batch)
+			tJob := Task{batch: batch}
+			workerPool.JobQueue <- tJob
+			//go batchProcessor(batch)
+			//time.Sleep(inter)
 		}
 	}()
 }
+
+func (t Task) RunTask(request interface{}) {
+	batchProcessor(t.batch)
+}
+
 func batchProcessor(batch []map[string][]string) {
 	fmt.Printf("接收到数据：%v \n", len(batch))
+	startNow := time.Now()
 	redisRes := make(map[string][]float64)
 	for _, v := range batch {
 		for device, oneGroupData := range v {
@@ -69,6 +92,7 @@ func batchProcessor(batch []map[string][]string) {
 	if err != nil {
 		fmt.Println("insert taos error" + err.Error())
 	}
+	fmt.Printf("batchProcessor 耗时:%v\n", time.Since(startNow))
 	//checkErr(err, "insert taos error")
 }
 

@@ -1,11 +1,8 @@
-module hjdemo-access
+module hjdemo-web
 
 go 1.18
 
-require (
-	github.com/eclipse/paho.mqtt.golang v1.4.2
-	github.com/taosdata/driver-go/v2 v2.0.5
-)
+require github.com/eclipse/paho.mqtt.golang v1.4.2
 
 require (
 	github.com/gorilla/websocket v1.4.2 // indirect

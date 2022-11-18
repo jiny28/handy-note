@@ -4,16 +4,28 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 )
 
 var point = flag.Int("p", 20, "point num")
-var device = flag.String("d", "device0", "device name.")
+var deviceNum = flag.Int("dn", 1, "device num")
+var ms = flag.Int("ms", 100, "sleep ms")
 
 func main() {
 	flag.Parse()
-	conn, err := net.Dial("tcp", "127.0.0.1:8888")
+	for i := 0; i < *deviceNum; i++ {
+		device := "device" + strconv.Itoa(i)
+		go startClient(device)
+	}
+	for {
+		time.Sleep(time.Second * 100)
+	}
+}
+
+func startClient(device string) {
+	conn, err := net.Dial("tcp", "192.168.1.229:8888")
 	if err != nil {
 		fmt.Println("client dial err=", err)
 		return
@@ -22,20 +34,22 @@ func main() {
 	defer conn.Close()
 
 	for {
-		data := getDeviceData()
+		data := getDeviceData(device)
 		_, err = conn.Write([]byte(data))
 		if err != nil {
 			fmt.Println("coon.write err=", err)
 			break
 		}
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(time.Duration(*ms) * time.Millisecond)
 	}
 }
 
-func getDeviceData() string {
+func getDeviceData(device string) string {
 	value := "10.808"
 	var builder strings.Builder
-	builder.WriteString(*device + ",")
+	builder.WriteString(device + ",")
+	tsInt := time.Now().UnixNano() / 1e6
+	builder.WriteString(strconv.FormatInt(tsInt, 10) + ",")
 	for i := 0; i < *point; i++ {
 		builder.WriteString(value)
 		if i != *point-1 {

@@ -11,14 +11,14 @@ import (
 )
 
 var EventQueue = make(chan string, 1000000)
-var batchSize = 25
+var batchSize = 20
 var inter = 10 * time.Millisecond
 var poolNum = 5
 var jobQueueNum = 5
 var workerPool *WorkerPool
 
 var mqttConnection = mqttUtil.MqttConnection{
-	Host:               []string{"tcp://127.0.0.1:1883"},
+	Host:               []string{"tcp://192.168.1.229:1883"},
 	Client:             "hjdemo_access",
 	Username:           "hlhz",
 	Password:           "hlhz.123456",
@@ -90,11 +90,11 @@ func batchProcessor(batch []string) {
 				Value: device,
 			},
 		}
-		mqttError := mqttConnection.PublishMsg("exdevice/"+device, 0, false, obj)
+		/*mqttError := mqttConnection.PublishMsg("exdevice/"+device, 0, false, obj)
 		if mqttError != nil {
 			fmt.Printf("mqtt转发错误device:%v:%v\n", device, mqttError.Error())
 			continue
-		}
+		}*/
 		ts := time.Now().UnixNano() / 1e6
 		rowValues := make([]taosUtil.RowValue, 0)
 		fieldValues := make([]taosUtil.FieldValue, 0)
@@ -121,7 +121,7 @@ func batchProcessor(batch []string) {
 	_, err := taosUtil.InsertAutoCreateTable(result)
 	if err != nil {
 		fmt.Println("taos insert error :" + err.Error())
-		panic(err.Error())
+		//panic(err.Error())
 	}
 	//fmt.Printf("save taos 耗时:%v\n", time.Since(startTaos))
 	fmt.Printf("batchProcessor 耗时:%v\n", time.Since(startNow))

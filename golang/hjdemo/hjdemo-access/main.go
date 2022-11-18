@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
+	"time"
 )
 
 var buffer = 4000
@@ -30,10 +32,7 @@ func main() {
 }
 
 func handleConn(c net.Conn) {
-	ip := strings.Split(c.RemoteAddr().String(), ":")[0]
-	fmt.Println("开始处理ip:" + ip)
 	var builder strings.Builder
-	defer fmt.Println("线程结束：" + ip)
 	defer c.Close()
 	for {
 		var byt = make([]byte, buffer)
@@ -61,6 +60,13 @@ func handleConn(c net.Conn) {
 			resultData := endData[:len(endData)-1]
 			//fmt.Println("读取到设备数据:" + resultData)
 			EventQueue <- resultData
+			split := strings.Split(resultData, ",")
+			device := split[0]
+			nowMs := time.Now().UnixNano() / 1e6
+			mqttError := mqttConnection.PublishMsg("exdevice/"+device+"/"+strconv.FormatInt(nowMs, 10), 0, false, resultData)
+			if mqttError != nil {
+				fmt.Printf("mqtt转发错误device:%v:%v\n", device, mqttError.Error())
+			}
 		}
 	}
 }

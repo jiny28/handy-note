@@ -6,6 +6,7 @@ import (
 	"iot-demo/taosUtil"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 var (
@@ -20,11 +21,55 @@ type rep struct {
 func startWeb() {
 	http.HandleFunc("/goiot/real", realData)
 	http.HandleFunc("/goiot/getData", getData)
+	http.HandleFunc("/goiot/getHisData", getHisData)
 	err := http.ListenAndServe(":"+strconv.Itoa(port), nil)
 	if err != nil {
 		fmt.Println("http监听错误:" + err.Error())
 		panic(err)
 	}
+}
+
+func getHisData(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm() // 解析参数，默认是不会解析的
+	s, ok := r.Form["startTime"]
+	if !ok {
+		fmt.Fprintf(w, getErrorRes("未选择开始时间."))
+		return
+	}
+	startTime := s[0]
+	e, ok := r.Form["endTime"]
+	if !ok {
+		fmt.Fprintf(w, getErrorRes("未选择结束时间."))
+		return
+	}
+	endTime := e[0]
+	d, ok := r.Form["device"]
+	if !ok {
+		fmt.Fprintf(w, getErrorRes("未选择采集项."))
+		return
+	}
+	devices := strings.Split(d[0], ",")
+	var builder strings.Builder
+	builder.WriteString("(")
+	for _, device := range devices {
+		builder.WriteString(fmt.Sprintf(" device = '%v' or", device))
+	}
+	s2 := builder.String()
+	deviceSql := s2[0:len(s2)-2] + ")"
+
+	sql := fmt.Sprintf("select * from kyj where %v and ts >= '%v' and ts <= '%v' order by ts asc", deviceSql, startTime, endTime)
+	query, _ := taosUtil.ExecuteQuery(sql, "")
+	if query == nil || len(query) == 0 {
+		fmt.Fprintf(w, getErrorRes("未查询到数据!"))
+		return
+	}
+	var resultReq = rep{Code: 200, Data: query}
+	result, err := json.Marshal(resultReq)
+	if err != nil {
+		fmt.Fprintf(w, getErrorRes("序列化错误!"))
+		return
+	}
+	fmt.Fprintf(w, string(result))
 }
 
 func getData(w http.ResponseWriter, r *http.Request) {

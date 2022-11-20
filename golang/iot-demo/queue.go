@@ -4,22 +4,37 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"iot-demo/entity"
+	"iot-demo/gopool"
+	"iot-demo/mqttUtil"
 	"iot-demo/taosUtil"
 	"time"
 )
 
 var EventQueue = make(chan entity.DeviceReceiveBean, 1000000)
-var batchSize = 40
+var batchSize = 30
 var inter = 10 * time.Millisecond
 var poolNum = 5
 var jobQueueNum = 5
-var workerPool *WorkerPool
+var workerPool *gopool.WorkerPool
+
+var externalMqttConnection = mqttUtil.MqttConnection{
+	Host:               []string{"tcp://10.88.0.14:1883"},
+	Client:             "go_admin_2",
+	Username:           "hlhz",
+	Password:           "hlhz.123456",
+	AutomaticReconnect: true,
+	CleanSession:       false,
+}
 
 func init() {
 	fmt.Printf("协程池初始化:poolNum:%v,jobQueueNum:%v\n", poolNum, jobQueueNum)
-	workerPool = NewWorkerPool(poolNum, jobQueueNum)
+	workerPool = gopool.NewWorkerPool(poolNum, jobQueueNum)
 	workerPool.Start()
+	externalMqttConnection.Connection(func(client mqtt.Client, message mqtt.Message) {
+		fmt.Println("external mqtt print msg:" + string(message.Payload()))
+	})
 }
 
 type Task struct {
@@ -45,9 +60,9 @@ func runDeviceQueue() {
 			}
 			tJob := Task{batch: batch}
 			workerPool.JobQueue <- tJob
-			//batchProcessor(batch)
 			time.Sleep(inter)
 		}
+		externalMqttConnection.Disconnection(250)
 	}()
 }
 
@@ -72,6 +87,11 @@ func batchProcessor(batch []entity.DeviceReceiveBean) {
 		}
 		hexData, _ := hex.DecodeString(payload)
 		payload = string(hexData)
+		mqttError := externalMqttConnection.PublishMsg("exdevice/"+obj.Device, 0, false, payload)
+		if mqttError != nil {
+			fmt.Printf("mqtt转发错误device:%v:%v\n", obj.Device, mqttError.Error())
+			continue
+		}
 		var jsonObject entity.SelfJson
 		err := json.Unmarshal([]byte(payload), &jsonObject)
 		if err != nil {
@@ -79,6 +99,7 @@ func batchProcessor(batch []entity.DeviceReceiveBean) {
 			continue
 		}
 		ts := jsonObject.Time
+		//fmt.Println("处理数据的时间为：" + time.Unix(0, ts*int64(time.Millisecond)).Format("2006-02-01 15:04:05.000"))
 		data := jsonObject.Data
 		rowValues := make([]taosUtil.RowValue, 0)
 		fieldValues := make([]taosUtil.FieldValue, 0)

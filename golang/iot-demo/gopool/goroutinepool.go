@@ -1,4 +1,4 @@
-package main
+package gopool
 
 type Job interface {
 	RunTask(request interface{})

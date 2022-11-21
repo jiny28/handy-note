@@ -18,8 +18,8 @@ var taosInfo = taosUtil.TaosInfo{
 	DbName:     "h",
 }
 var mqttConnection = mqttUtil.MqttConnection{
-	Host:               []string{"tcp://10.88.0.14:1883"},
-	Client:             "go_admin",
+	Host:               []string{"tcp://127.0.0.1:1883"},
+	Client:             "iot",
 	Username:           "hlhz",
 	Password:           "hlhz.123456",
 	AutomaticReconnect: true,
@@ -32,7 +32,7 @@ func init() {
 
 var taskFlag = make(chan int, 10)
 var RestartFlag = false
-var topics = map[string]byte{"device/#": 2}
+var topics = map[string]byte{"diot/#": 2}
 
 func main() {
 	runDeviceQueue()

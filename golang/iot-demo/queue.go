@@ -14,14 +14,14 @@ import (
 
 var EventQueue = make(chan entity.DeviceReceiveBean, 1000000)
 var batchSize = 30
-var inter = 10 * time.Millisecond
-var poolNum = 5
+var inter = 100 * time.Millisecond
+var poolNum = 2
 var jobQueueNum = 5
 var workerPool *gopool.WorkerPool
 
 var externalMqttConnection = mqttUtil.MqttConnection{
-	Host:               []string{"tcp://10.88.0.14:1883"},
-	Client:             "go_admin_2",
+	Host:               []string{"tcp://127.0.0.1:1883"},
+	Client:             "iot-exter",
 	Username:           "hlhz",
 	Password:           "hlhz.123456",
 	AutomaticReconnect: true,
@@ -71,8 +71,8 @@ func (t Task) RunTask(request interface{}) {
 }
 
 func batchProcessor(batch []entity.DeviceReceiveBean) {
-	fmt.Printf("接收到数据：%v \n", len(batch))
-	startNow := time.Now()
+	//fmt.Printf("接收到数据：%v \n", len(batch))
+	//startNow := time.Now()
 	result := make([]taosUtil.SubTableValue, 0)
 	for _, obj := range batch {
 		tags := []taosUtil.TagValue{
@@ -87,7 +87,7 @@ func batchProcessor(batch []entity.DeviceReceiveBean) {
 		}
 		hexData, _ := hex.DecodeString(payload)
 		payload = string(hexData)
-		mqttError := externalMqttConnection.PublishMsg("exdevice/"+obj.Device, 0, false, payload)
+		mqttError := externalMqttConnection.PublishMsg("exiot/"+obj.Device, 0, false, payload)
 		if mqttError != nil {
 			fmt.Printf("mqtt转发错误device:%v:%v\n", obj.Device, mqttError.Error())
 			continue
@@ -123,12 +123,12 @@ func batchProcessor(batch []entity.DeviceReceiveBean) {
 		subTableValue.Values = rowValues
 		result = append(result, subTableValue)
 	}
-	startTaos := time.Now()
+	//startTaos := time.Now()
 	_, err := taosUtil.InsertAutoCreateTable(result)
 	if err != nil {
 		fmt.Println("taos insert error :" + err.Error())
 		panic(err.Error())
 	}
-	fmt.Printf("save taos 耗时:%v\n", time.Since(startTaos))
-	fmt.Printf("batchProcessor 耗时:%v\n", time.Since(startNow))
+	//fmt.Printf("save taos 耗时:%v\n", time.Since(startTaos))
+	//fmt.Printf("batchProcessor 耗时:%v\n", time.Since(startNow))
 }

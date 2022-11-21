@@ -33,6 +33,7 @@ func main() {
 
 func handleConn(c net.Conn) {
 	var builder strings.Builder
+	nowTime := time.Now()
 	defer c.Close()
 	for {
 		var byt = make([]byte, buffer)
@@ -59,7 +60,9 @@ func handleConn(c net.Conn) {
 			endData := string(deviceHexByte)
 			resultData := endData[:len(endData)-1]
 			//fmt.Println("读取到设备数据:" + resultData)
+			fmt.Printf("解析一台设备数据所耗时:%v\n", time.Since(nowTime))
 			EventQueue <- resultData
+			nowTime = time.Now()
 			split := strings.Split(resultData, ",")
 			device := split[0]
 			nowMs := time.Now().UnixNano() / 1e6

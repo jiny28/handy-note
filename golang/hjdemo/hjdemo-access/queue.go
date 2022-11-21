@@ -78,7 +78,6 @@ func (t Task) RunTask(request interface{}) {
 }
 
 func batchProcessor(batch []string) {
-	fmt.Printf("接收到数据大小：%v \n", len(batch[0]))
 	startNow := time.Now()
 	result := make([]taosUtil.SubTableValue, 0)
 	for _, obj := range batch {
@@ -90,11 +89,6 @@ func batchProcessor(batch []string) {
 				Value: device,
 			},
 		}
-		/*mqttError := mqttConnection.PublishMsg("exdevice/"+device, 0, false, obj)
-		if mqttError != nil {
-			fmt.Printf("mqtt转发错误device:%v:%v\n", device, mqttError.Error())
-			continue
-		}*/
 		ts := time.Now().UnixNano() / 1e6
 		rowValues := make([]taosUtil.RowValue, 0)
 		fieldValues := make([]taosUtil.FieldValue, 0)
@@ -117,12 +111,12 @@ func batchProcessor(batch []string) {
 		subTableValue.Values = rowValues
 		result = append(result, subTableValue)
 	}
-	//startTaos := time.Now()
+	fmt.Printf("组装%v台设备的taos对象耗时:%v\n", len(batch), time.Since(startNow))
+	startTaos := time.Now()
 	_, err := taosUtil.InsertAutoCreateTable(result)
 	if err != nil {
 		fmt.Println("taos insert error :" + err.Error())
 		//panic(err.Error())
 	}
-	//fmt.Printf("save taos 耗时:%v\n", time.Since(startTaos))
-	fmt.Printf("batchProcessor 耗时:%v\n", time.Since(startNow))
+	fmt.Printf("存储%v台设备的taos对象耗时:%v\n", len(batch), time.Since(startTaos))
 }

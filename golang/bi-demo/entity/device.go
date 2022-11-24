@@ -12,6 +12,10 @@ type DeviceReceiveBean struct {
 	// 数据
 	Payload string
 }
+type RealValue struct {
+	Date  string
+	Value interface{}
+}
 
 type SelfData struct {
 	ItemCode string      `json:"itemCode"`

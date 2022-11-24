@@ -33,7 +33,7 @@ services:
 
   hjaccess:
     build: ./hjdemo-access
-    image: hjaccess:5.0
+    image: hjaccess:9.0
     container_name: hjaccess
     restart: always
     depends_on:
@@ -46,7 +46,7 @@ services:
 
   hjweb:
     build: ./hjdemo-web
-    image: hjweb:5.0
+    image: hjweb:9.0
     container_name: hjweb
     restart: always
     depends_on:

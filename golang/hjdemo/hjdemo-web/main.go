@@ -32,12 +32,12 @@ func main() {
 		topic := msg.Topic()
 		//device := strings.Split(topic, "/")[1]
 		ts := strings.Split(topic, "/")[2]
-		ts2 := strings.Split(payload, ",")[1]
+		//ts2 := strings.Split(payload, ",")[1]
 		parseInt, _ := strconv.ParseInt(ts, 10, 64)
-		parseInt2, _ := strconv.ParseInt(ts2, 10, 64)
+		//parseInt2, _ := strconv.ParseInt(ts2, 10, 64)
 		nowMs := time.Now().UnixNano() / 1e6
 		fmt.Printf("上行链路时间为(ms)：%v\n", nowMs-parseInt)
-		fmt.Printf("完整链路时间为(ms)：%v\n", nowMs-parseInt2)
+		//fmt.Printf("完整链路时间为(ms)：%v\n", nowMs-parseInt2)
 		//fmt.Printf("接收到%v设备的数据,数据的大小为:%v\n", device, len(payload))
 
 	})

@@ -9,9 +9,10 @@ import (
 	"time"
 )
 
-var point = flag.Int("p", 20, "point num")
-var deviceNum = flag.Int("dn", 1, "device num")
-var ms = flag.Int("ms", 100, "sleep ms")
+var point = flag.Int("p", 10000, "point num")
+var deviceNum = flag.Int("dn", 10, "device num")
+var ms = flag.Int("ms", 10, "sleep ms")
+var numSecond = flag.Int("cs", 5, "send m data")
 
 func main() {
 	flag.Parse()
@@ -32,15 +33,22 @@ func startClient(device string) {
 	}
 	fmt.Println("client connect 成功")
 	defer conn.Close()
-
-	for {
-		data := getDeviceData(device)
-		_, err = conn.Write([]byte(data))
+	num := *numSecond * 1000 / (*ms)
+	fmt.Printf("共计发送%v次\n", num)
+	now := time.Now()
+	data := getDeviceData(device)
+	bytes := []byte(data)
+	for i := 0; i < num; i++ {
+		_, err = conn.Write(bytes)
 		if err != nil {
 			fmt.Println("coon.write err=", err)
 			break
 		}
-		time.Sleep(time.Duration(*ms) * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
+	}
+	fmt.Printf("%v设备发送完毕,总计耗时%v\n", device, time.Since(now))
+	for {
+		time.Sleep(500 * time.Second)
 	}
 }
 
@@ -48,8 +56,8 @@ func getDeviceData(device string) string {
 	value := "10.808"
 	var builder strings.Builder
 	builder.WriteString(device + ",")
-	tsInt := time.Now().UnixNano() / 1e6
-	builder.WriteString(strconv.FormatInt(tsInt, 10) + ",")
+	/*tsInt := time.Now().UnixNano() / 1e6
+	builder.WriteString(strconv.FormatInt(tsInt, 10) + ",")*/
 	for i := 0; i < *point; i++ {
 		builder.WriteString(value)
 		if i != *point-1 {

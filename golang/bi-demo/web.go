@@ -21,7 +21,9 @@ type rep struct {
 }
 
 func startWeb() {
+	//127.0.0.1:9090/bi/real?device=air1,air4&code=airflow,airexhaustpressure,r_airelectric_day
 	http.HandleFunc("/bi/real", realData)
+	//127.0.0.1:9090/bi/getHisData?device=air1&code=airelectric,airescapage,r_airelectric_day&startTime=2022-11-23 23:00:00&endTime=2022-11-24 01:00:00
 	http.HandleFunc("/bi/getHisData", getHisData)
 	err := http.ListenAndServe(":"+strconv.Itoa(port), nil)
 	if err != nil {

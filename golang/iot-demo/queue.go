@@ -13,7 +13,7 @@ import (
 )
 
 var EventQueue = make(chan entity.DeviceReceiveBean, 1000000)
-var batchSize = 30
+var batchSize = 300
 var inter = 100 * time.Millisecond
 var poolNum = 2
 var jobQueueNum = 5

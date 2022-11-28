@@ -1,0 +1,44 @@
+version: "3.5"
+
+services:
+  jar:
+    build: jar
+    image: jar:1.0
+    container_name: jar
+    restart: always
+    ports: #映射端口
+      - 8761:8761
+    networks:
+      - jiny_bridge
+
+  go:
+    build: go
+    image: go:1.0
+    container_name: go
+    restart: always
+    networks:
+      - jiny_bridge
+
+  tomcat: 
+    build: tomcat
+    image: tomcat:1.0         #镜像名称和版本，如果没有build，会从本地用本镜像构建，如果本地也没有就从中央仓库拉取这个镜像
+    container_name: tomcat           #容器名
+    restart: always                        # 启动策略
+    volumes:                           #挂载
+      - ${tomcat_logs}:/usr/local/tomcat/logback
+      - ${tomcat_webapps}:/usr/local/tomcat/webapps
+    ports:                                #映射端口
+      - 8080:8080
+    networks:
+      - jiny_bridge
+    environment:
+      TZ: Asia/Shanghai
+
+networks:
+  jiny_bridge:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.19.0.0/24
+       

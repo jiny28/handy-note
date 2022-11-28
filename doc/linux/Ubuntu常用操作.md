@@ -58,7 +58,7 @@ sudo service sshd restart
 安装后记得配置国内的镜像地址，Docker Hub 大陆拉取较慢。
 
 **踩坑：**
-1. RK3399 板子安装 Docker 若启动失败则是内核需要更新，找购买的商家要即可
+1. RK3399 板子安装 Docker 若启动失败则是内核需要更新，找购买的商家要即可(云盘有)
 2. RK3399 板子安装 docker-compose 以下版本可用：
 ```shell
 sudo curl -L "https://github.com/docker/compose/releases/download/v2.2.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose

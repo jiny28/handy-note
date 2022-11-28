@@ -1,0 +1,10 @@
+CREATE STABLE kyj (ts timestamp, airStatus binary(64), airElectric float, airGas float, airWater float, airEscapage float, airFlow INT, airPower INT, airExhaustPressure float, airGasDisplacement float,airMainPressure INT) TAGS (device binary(64));
+
+
+CREATE STABLE kyjres (ts timestamp, hvalue float) TAGS (item binary(64));
+
+CREATE STABLE monthcountcache (ts timestamp, lastt binary(64),lastv binary(64)) TAGS (item binary(64));
+
+CREATE STABLE daycountcache (ts timestamp, lastt binary(64),lastv binary(64)) TAGS (item binary(64));
+
+CREATE STABLE biback (ts timestamp, code binary(64),hvalue binary(16000),device binary(64),starttime binary(64),endtime binary(64)) TAGS (backname binary(64));

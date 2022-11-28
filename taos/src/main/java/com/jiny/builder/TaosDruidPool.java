@@ -18,7 +18,7 @@ public class TaosDruidPool {
     public static DataSource DATASOURCE;
 
     static {
-        DATASOURCE = getDataSource("taos-server", 50, "root", "taosdata", "hlhz");
+        DATASOURCE = getDataSource("taos-server", 50, "root", "taosdata", "h");
     }
 
     private static DataSource getDataSource(String host, int poolSize, String username, String password, String database) {

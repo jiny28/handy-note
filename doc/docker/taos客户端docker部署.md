@@ -35,3 +35,89 @@ ENTRYPOINT ["java","-jar","app.jar"]
 docker run -d --name taos --hostname="taos-server" -e TZ=Asia/Shanghai  -p 6030-6049:6030-6049 -p 6030-6049:6030-6049/udp tdengine/tdengine:2.6.0.6
 ```
 ### Docker 集群部署
+0. 规划物理服务器 `ip` 和 `FQDN`
+
+```dockerfile
+- "c1.taosdata.com:10.88.0.36"
+- "c2.taosdata.com:10.88.0.38"
+- "c3.taosdata.com:10.88.0.47"
+- "c4.taosdata.com:10.88.0.39"
+```
+
+1. 准备`docker-compose.yml` 文件
+
+**文件更改说明**
+
+每台物理服务器都需要启动该容器，并且镜像版本需一致，每台需差异化更改内容如下：
+1. `TAOS_FQDN` 每台修改为规划好的`FQDN`
+2. `TAOS_FIRST_EP` 每台一样，需统一填写集群中第一台启动的节点（管理节点）
+3. `TAOS_SECOND_EP` 每台一样，在集群中任选一台即可，相当于备用管理节点，形成 end point 的高可用
+4. `extra_hosts` 每台一样，修改为规划好的`FQDN`的内容即可，注意：部署时需要把本机`ip`的host给注释掉
+
+```dockerfile
+version: "3.5"
+
+services:
+  taos:
+    image: tdengine/tdengine:3.0.3.1
+    # hostname: taos-server
+    container_name: taos
+    ports:
+      - 6030-6049:6030-6049
+      - 6030-6049:6030-6049/udp
+    environment:
+      TZ: Asia/Shanghai
+      TAOS_FQDN: "c1.taosdata.com"
+      TAOS_FIRST_EP: "c1.taosdata.com:6030"
+      TAOS_SECOND_EP: "c2.taosdata.com:6030"
+    extra_hosts:
+      - "c1.taosdata.com:10.88.0.36"
+      - "c2.taosdata.com:10.88.0.38"
+      - "c3.taosdata.com:10.88.0.47"
+      - "c4.taosdata.com:10.88.0.39"
+    restart: always
+    volumes:
+      - ./taos/data:/var/lib/taos/
+      - ./taos/log:/var/log/taos/
+      
+```
+
+2. 启动`firstep`配置的服务器内的容器
+
+3. 进去该`taos`容器的客户端执行，看到如下信息说明启动成功
+
+```
+taos> show dnodes;
+     id|    endpoint     | vnodes | support_vnodes |   status   |  create_time   | reboot_time   |     note      |
+========================================================================================================================
+     1 | c1.taosdata.com:6030  |      0 |   8 | ready | 2023-03-23 18:03:04.013 | 2023-03-23 18:02:52.399 |     |
+Query OK, 1 row(s) in set (0.005001s)
+```
+
+4. 依次启动剩余的节点后并在`firstep`节点`taos`客户端执行添加节点操作
+
+```
+taos> CREATE DNODE "c2.taosdata.com";
+taos> CREATE DNODE "c3.taosdata.com";
+taos> CREATE DNODE "c4.taosdata.com";
+taos> show dnodes;
+id |   endpoint       | vnodes | support_vnodes |   status   |       create_time       |  reboot_time  | note    |
+==========================================================================================================================
+1 | c1.taosdata.com:6030 |      0 |       8 | ready      | 2023-03-23 18:03:04.013 | 2023-03-23 18:02:52.399 | |
+2 | c2.taosdata.com:6030 |      0 |       8 | ready      | 2023-03-23 18:55:41.444 | 2023-03-23 19:01:24.058 | |
+3 | c3.taosdata.com:6030 |      0 |       8 | ready      | 2023-03-23 19:06:14.952 | 2023-03-23 19:13:05.931 | |
+4 | c4.taosdata.com:6030 |      0 |       8 | ready      | 2023-03-23 19:10:25.189 | 2023-03-23 19:13:52.209 | |
+Query OK, 4 row(s) in set (0.003706s)
+```
+
+5. `java`客户端访问如果需要高可用（也可以按URL方式访问），则可以把`JDBC`的`IP`和`PORT`填写为空后，把客户端配置文件内容中的`firstEp`和`secondEp`做相应的更改
+
+```
+############### 1. Cluster End point ############################
+
+# The end point of the first dnode in the cluster to be connected to when this dnode or a CLI `taos` is started
+firstEp                   c1.taosdata.com:6030
+
+# The end point of the second dnode to be connected to if the firstEp is not available
+secondEp                  c2.taosdata.com:6030
+```

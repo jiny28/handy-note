@@ -35,7 +35,8 @@ ENTRYPOINT ["java","-jar","app.jar"]
 docker run -d --name taos --hostname="taos-server" -e TZ=Asia/Shanghai  -p 6030-6049:6030-6049 -p 6030-6049:6030-6049/udp tdengine/tdengine:2.6.0.6
 ```
 ### Docker 集群部署
-0. 规划物理服务器 `ip` 和 `FQDN`
+
+1. 规划物理服务器 `ip` 和 `FQDN`
 
 ```dockerfile
 - "c1.taosdata.com:10.88.0.36"
@@ -44,15 +45,19 @@ docker run -d --name taos --hostname="taos-server" -e TZ=Asia/Shanghai  -p 6030-
 - "c4.taosdata.com:10.88.0.39"
 ```
 
-1. 准备`docker-compose.yml` 文件
+2. 准备`docker-compose.yml` 文件
 
 **文件更改说明**
 
 每台物理服务器都需要启动该容器，并且镜像版本需一致，每台需差异化更改内容如下：
-1. `TAOS_FQDN` 每台修改为规划好的`FQDN`
-2. `TAOS_FIRST_EP` 每台一样，需统一填写集群中第一台启动的节点（管理节点）
-3. `TAOS_SECOND_EP` 每台一样，在集群中任选一台即可，相当于备用管理节点，形成 end point 的高可用
-4. `extra_hosts` 每台一样，修改为规划好的`FQDN`的内容即可，注意：部署时需要把本机`ip`的host给注释掉
+
+a. `TAOS_FQDN` 每台修改为规划好的`FQDN`
+
+b. `TAOS_FIRST_EP` 每台一样，需统一填写集群中第一台启动的节点（管理节点）
+
+c. `TAOS_SECOND_EP` 每台一样，在集群中任选一台即可，相当于备用管理节点，形成 end point 的高可用
+
+d. `extra_hosts` 每台一样，修改为规划好的`FQDN`的内容即可，注意：部署时需要把本机`ip`的host给注释掉
 
 ```dockerfile
 version: "3.5"
@@ -82,9 +87,9 @@ services:
       
 ```
 
-2. 启动`firstep`配置的服务器内的容器
+3. 启动`firstep`配置的服务器内的容器
 
-3. 进去该`taos`容器的客户端执行，看到如下信息说明启动成功
+4. 进去该`taos`容器的客户端执行，看到如下信息说明启动成功
 
 ```
 taos> show dnodes;
@@ -94,7 +99,11 @@ taos> show dnodes;
 Query OK, 1 row(s) in set (0.005001s)
 ```
 
-4. 依次启动剩余的节点后并在`firstep`节点`taos`客户端执行添加节点操作
+5. 依次启动剩余的节点后并在`firstep`节点`taos`客户端执行添加节点操作
+
+   > 如果按first、second顺序启动，启动完后可以show dnodes;看一眼，大多数时候会自动加入。
+   >
+   > 集群创建完后可以show mnodes;看一眼有多少管理节点，如果只有一个，并且又有高可用的需求，需要多添加几个管理节点，添加语法为:create mnode on dnode [dnodeid]
 
 ```
 taos> CREATE DNODE "c2.taosdata.com";
@@ -110,7 +119,9 @@ id |   endpoint       | vnodes | support_vnodes |   status   |       create_time
 Query OK, 4 row(s) in set (0.003706s)
 ```
 
-5. `java`客户端访问如果需要高可用（也可以按URL方式访问），则可以把`JDBC`的`IP`和`PORT`填写为空后，把客户端配置文件内容中的`firstEp`和`secondEp`做相应的更改
+6. `java`客户端访问方式
+
+a. 原生方式访问：访问如果需要高可用（也可以按URL方式访问），则可以把`JDBC`的`IP`和`PORT`填写为空后，把客户端配置文件内容中的`firstEp`和`secondEp`做相应的更改
 
 ```
 ############### 1. Cluster End point ############################
@@ -121,3 +132,35 @@ firstEp                   c1.taosdata.com:6030
 # The end point of the second dnode to be connected to if the firstEp is not available
 secondEp                  c2.taosdata.com:6030
 ```
+
+b. `REST`连接方式：直接访问`nginx` ，形成集群高可用访问，`nginx`监听`6041`与`6044 udp`端口，该端口都是`taos`默认端口，注意`nginx`所在服务器需要配置`taos`访问的`host`。
+
+```
+############### nginx point conf ################
+http {
+	upstream cli {
+        server c1.taosdata.com:6041;
+        server c2.taosdata.com:6041;
+        server c3.taosdata.com:6041;
+    }
+    server{
+        listen 6041;
+        location /{
+            proxy_pass http://cli;
+        }
+    }
+}
+stream {
+    upstream scli {
+        server c1.taosdata.com:6044;
+        server c2.taosdata.com:6044;
+        server c3.taosdata.com:6044;
+    }
+    server {
+        listen 6044 udp;
+        proxy_pass scli;
+    }
+}
+```
+
+

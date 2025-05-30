@@ -72,74 +72,46 @@ mount --make-shared /data
 version: "3"
 
 services:
-  jellyfin:
-    container_name: jellyfin
-    image: jellyfin/jellyfin
-    volumes:
-      - /data/jellyfin/config:/config
-      - /data/jellyfin/cache:/cache
-      - /data/jellyfin/media:/media
-      - /data/clouddrive2/media:/cloudmedia
-    network_mode: host
-    restart: unless-stopped
-    devices:
-      - /dev/dri/renderD128:/dev/dri/renderD128
-      - /dev/dri/card0:/dev/dri/card0
-    depends_on:
-      - clouddrive2
+  # jellyfin:
+  #   container_name: jellyfin
+  #   image: jellyfin/jellyfin
+  #   volumes:
+  #     - /data/jellyfin/config:/config
+  #     - /data/jellyfin/cache:/cache
+  #     - /data/jellyfin/media:/media
+  #     - /data/clouddrive2/media:/cloudmedia
+  #   network_mode: host
+  #   restart: unless-stopped
+  #   devices:
+  #     - /dev/dri/renderD128:/dev/dri/renderD128
+  #     - /dev/dri/card0:/dev/dri/card0
+  #   depends_on:
+  #     - clouddrive2
 
-  tinymediamanager:
-    container_name: tinymediamanager
-    image: romancin/tinymediamanager:latest-v4
-    volumes:
-      - /data/tinymediamanager/config:/config
-      - /data/jellyfin/media:/media
-      - /data/clouddrive2/media:/cloudmedia
-    environment:
-      - ENABLE_CJK_FONT=1
-      - USER_ID=0
-      - GROUP_ID=0
-    user: 0:0
-    ports:
-      - 5800:5800
-    restart: unless-stopped
-    extra_hosts:
-      - "image.tmdb.org:169.150.249.169"
-      - "api.themoviedb.org:13.226.225.52" 
-      - "www.themoviedb.org:13.226.228.83"
-    depends_on:
-      - clouddrive2
+  # tinymediamanager:
+  #   container_name: tinymediamanager
+  #   image: romancin/tinymediamanager:latest-v4
+  #   volumes:
+  #     - /data/tinymediamanager/config:/config
+  #     - /data/jellyfin/media:/media
+  #     - /data/clouddrive2/media:/cloudmedia
+  #   environment:
+  #     - ENABLE_CJK_FONT=1
+  #     - USER_ID=0
+  #     - GROUP_ID=0
+  #   user: 0:0
+  #   ports:
+  #     - 5800:5800
+  #   restart: unless-stopped
+  #   extra_hosts:
+  #     - "image.tmdb.org:169.150.249.169"
+  #     - "api.themoviedb.org:13.226.225.52" 
+  #     - "www.themoviedb.org:13.226.228.83"
+  #   depends_on:
+  #     - clouddrive2
 
-  clouddrive2:
-    container_name: clouddrive2
-    image: cloudnas/clouddrive2-unstable
-    restart: unless-stopped
-    environment: 
-      - TZ=Asia/Shanghai
-      - CLOUDDRIVE_HOME=/Config
-    privileged: true
-    devices:
-      - /dev/fuse:/dev/fuse
-    volumes:
-      - /data/clouddrive2/shared:/CloudNAS:shared
-      - /data/clouddrive2/Config:/Config
-      - /data/clouddrive2/media:/media:shared
-    ports:
-      - 19798:19798
-  ql:
-    # alpine 基础镜像版本
-    image: whyour/qinglong:latest
-    container_name: qinglong
-    volumes:
-      - /data/ql/data:/ql/data
-    ports:
-      - "0.0.0.0:5700:5700"
-    environment:
-      # 部署路径非必须，以斜杠开头和结尾，比如 /test/
-      QlBaseUrl: '/'
-    restart: unless-stopped
-   alist:
-    image: 'xhofe/alist:latest'
+  alist:
+    image: 'xhofe/alist:v3.44.0'
     container_name: alist
     volumes:
         - '/data/alist:/opt/alist/data'
@@ -152,6 +124,77 @@ services:
         - UMASK=022
         - TZ=Asia/Shanghai
     restart: unless-stopped
+
+  # clouddrive2:
+  #   container_name: clouddrive2
+  #   image: cloudnas/clouddrive2-unstable
+  #   restart: unless-stopped
+  #   environment: 
+  #     - TZ=Asia/Shanghai
+  #     - CLOUDDRIVE_HOME=/Config
+  #   privileged: true
+  #   devices:
+  #     - /dev/fuse:/dev/fuse
+  #   volumes:
+  #     - /data/clouddrive2/shared:/CloudNAS:shared
+  #     - /data/clouddrive2/Config:/Config
+  #     - /data/clouddrive2/media:/media:shared
+  #   ports:
+  #     - 19798:19798
+  ql:
+    # alpine 基础镜像版本
+    image: whyour/qinglong:latest
+    container_name: qinglong
+    volumes:
+      - /data/ql/data:/ql/data
+    ports:
+      - "0.0.0.0:5700:5700"
+    environment:
+      # 部署路径非必须，以斜杠开头和结尾，比如 /test/
+      QlBaseUrl: '/'
+    restart: unless-stopped
+  # homeassistant:
+  #   container_name: homeassistant
+  #   image: homeassistant/home-assistant:stable
+  #   privileged: true
+  #   restart: unless-stopped
+  #   environment:
+  #     TZ: Asia/Shanghai
+  #   volumes:
+  #     - /data/homeassistant:/config
+  #   network_mode: host
+  
+  hbbs:
+    container_name: hbbs
+    ports:
+      - 21115:21115
+      - 21116:21116 # 自定义 hbbs 映射端口
+      - 21116:21116/udp # 自定义 hbbs 映射端口
+    image: rustdesk/rustdesk-server
+    command: hbbs 
+    volumes:
+      - /data/rustdesk:/root # 自定义挂载目录
+    depends_on:
+      - hbbr
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+  hbbr:
+    container_name: hbbr
+    ports:
+      - 21117:21117 # 自定义 hbbr 映射端口
+    image: rustdesk/rustdesk-server
+    command: hbbr
+    volumes:
+      - /data/rustdesk:/root # 自定义挂载目录
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64M
 ```
 
 ## jellyfin 常见问题解决

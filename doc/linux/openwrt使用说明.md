@@ -110,19 +110,19 @@ services:
   #   depends_on:
   #     - clouddrive2
 
-  alist:
-    image: 'xhofe/alist:v3.44.0'
-    container_name: alist
+  openlist:
+    image: 'openlistteam/openlist:v4.0.8'
+    container_name: openlist
     volumes:
-        - '/data/alist:/opt/alist/data'
-        - '/data/jinydata:/opt/alist/jinydata'
+      - '/data/openlist:/opt/openlist/data'
+      - '/data/jinydata:/opt/openlist/jinydata'
     ports:
-        - '5244:5244'
+      - '5244:5244'
     environment:
-        - PUID=0
-        - PGID=0
-        - UMASK=022
-        - TZ=Asia/Shanghai
+      - PUID=0
+      - PGID=0
+      - UMASK=022
+      - TZ=Asia/Shanghai
     restart: unless-stopped
 
   # clouddrive2:
